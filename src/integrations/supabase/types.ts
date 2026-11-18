@@ -480,6 +480,16 @@ export type Database = {
           ultimo_acesso: string
         }[]
       }
+      portal_obter_configuracoes: {
+        Args: { p_token: string }
+        Returns: {
+          cnpj: string
+          email_notificacoes: string
+          endereco: string
+          nome: string
+          telefone: string
+        }[]
+      }
       portal_obter_orcamento: {
         Args: { p_id: string; p_token: string }
         Returns: Json
@@ -489,6 +499,17 @@ export type Database = {
           r: Database["public"]["Tables"]["consultation_requests"]["Row"]
         }
         Returns: Json
+      }
+      portal_salvar_configuracoes: {
+        Args: {
+          p_cnpj: string
+          p_email_notificacoes: string
+          p_endereco: string
+          p_nome: string
+          p_telefone: string
+          p_token: string
+        }
+        Returns: undefined
       }
       portal_salvar_honorarios: {
         Args: { p_dados: Json; p_id: string; p_token: string }

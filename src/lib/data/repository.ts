@@ -425,11 +425,8 @@ const supabaseRepository = {
   },
 
   async getSettings(): Promise<InstitutionSettings> {
-    const { data } = await supabase
-      .from("institution_settings")
-      .select("nome, cnpj, endereco, telefone, email_notificacoes")
-      .eq("id", 1)
-      .maybeSingle();
+    const rows = (await portalRpc<any[] | null>("portal_obter_configuracoes")) ?? [];
+    const data = rows[0];
     return {
       nome: data?.nome ?? "",
       cnpj: data?.cnpj ?? "",
@@ -440,15 +437,13 @@ const supabaseRepository = {
   },
 
   async saveSettings(input: InstitutionSettings): Promise<void> {
-    const { error } = await supabase.from("institution_settings").upsert({
-      id: 1,
-      nome: input.nome,
-      cnpj: input.cnpj,
-      endereco: input.endereco,
-      telefone: input.telefone,
-      email_notificacoes: input.emailNotificacoes,
+    await portalRpc("portal_salvar_configuracoes", {
+      p_nome: input.nome,
+      p_cnpj: input.cnpj,
+      p_endereco: input.endereco,
+      p_telefone: input.telefone,
+      p_email_notificacoes: input.emailNotificacoes,
     });
-    if (error) throw new Error(error.message);
   },
 };
 

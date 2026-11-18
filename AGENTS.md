@@ -9,4 +9,4 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Portal data tables (orçamentos, pacientes, médicos, eventos, usuários) have no direct client access; the browser calls `portal_*` SECURITY DEFINER RPCs with the session token from `iniciar_sessao`, which validate the token and role server-side. Why: the app uses its own login, not Supabase Auth, so RLS cannot identify the caller.
+- Portal data tables (orçamentos, pacientes, médicos, eventos, usuários, configurações) have no direct client access; the browser calls `portal_*` SECURITY DEFINER RPCs with the session token from `iniciar_sessao`, which validate the token and role server-side. Why: the app uses its own login, not Supabase Auth, so RLS cannot identify the caller.

@@ -8,6 +8,13 @@
       "when": 1795030068277,
       "tag": "0000_lock_portal_tables_with_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795030518847,
+      "tag": "0001_lock_institution_settings",
+      "breakpoints": true
     }
   ]
 }
