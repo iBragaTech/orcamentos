@@ -281,7 +281,7 @@ export function createBudgetExporter({ pool, enabled = false, audit = () => {} }
          cd_convenio,cd_categoria,ie_status_orcamento,dt_atualizacao,nm_usuario,
          dt_atualizacao_nrec,nm_usuario_nrec,ds_observacao,
          cd_condicao_pagamento,ie_calculo_valor,vl_deposito)
-        VALUES (:id,:estab,:pessoa,SYSDATE,:convenio,:categoria,5,SYSDATE,:usuario,SYSDATE,:usuario,:obs,
+        VALUES (:id,:estab,:pessoa,SYSDATE,:convenio,:categoria,6,SYSDATE,:usuario,SYSDATE,:usuario,:obs,
           :condicaoPagamento,:calculoValor,:deposito)`,
         {
           id,
