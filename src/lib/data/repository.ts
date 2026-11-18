@@ -102,16 +102,6 @@ function mapRequest(row: any): ConsultationRequest {
   };
 }
 
-function unwrap<T>(res: { data: T | null; error: { message: string } | null }): NonNullable<T> {
-  if (res.error) throw new Error(res.error.message);
-  return res.data as NonNullable<T>;
-}
-
-function unwrapId(res: { data: any; error: { message: string } | null }): { id: string } {
-  if (res.error) throw new Error(res.error.message);
-  return res.data as { id: string };
-}
-
 export interface NewRequestInput {
   requestKey?: string;
   tasy?: {
@@ -150,6 +140,36 @@ export interface DoctorFeesInput {
   fisioterapia: number | null;
   tempoBloco: string;
   obsMedico: string;
+}
+
+// Token de sessão emitido pelo login (iniciar_sessao). O banco valida o token
+// em toda operação; sem ele nenhum dado de orçamento, paciente ou usuário é lido.
+function sessionToken(): string {
+  try {
+    const raw = localStorage.getItem("portal.session");
+    const token = raw ? (JSON.parse(raw) as { token?: string }).token : undefined;
+    if (token) return token;
+  } catch {
+    /* sessão inválida */
+  }
+  throw new Error("Sessão expirada. Entre novamente.");
+}
+
+async function portalRpc<T>(fn: string, args: Record<string, unknown> = {}): Promise<T> {
+  const { data, error } = await (supabase as any).rpc(fn, { p_token: sessionToken(), ...args });
+  if (error) {
+    if (error.code === "28000" || /Sessão expirada/i.test(error.message)) {
+      try {
+        localStorage.removeItem("portal.session");
+      } catch {
+        /* storage indisponível */
+      }
+      if (typeof window !== "undefined") window.location.assign("/login");
+      throw new Error("Sessão expirada. Entre novamente.");
+    }
+    throw new Error(error.message);
+  }
+  return data as T;
 }
 
 const supabaseRepository = {
@@ -191,190 +211,54 @@ const supabaseRepository = {
   },
 
   async listRequests(): Promise<ConsultationRequest[]> {
-    const data = unwrap(
-      await supabase
-        .from("consultation_requests")
-        .select(REQUEST_SELECT)
-        .order("created_at", { ascending: false }),
-    );
-    return (data as any[]).map(mapRequest);
+    const data = await portalRpc<any[] | null>("portal_listar_orcamentos");
+    return (data ?? []).map(mapRequest);
   },
 
   async getRequest(id: string): Promise<ConsultationRequest | null> {
-    const { data, error } = await supabase
-      .from("consultation_requests")
-      .select(REQUEST_SELECT)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
+    const data = await portalRpc<any | null>("portal_obter_orcamento", { p_id: id });
     return data ? mapRequest(data) : null;
   },
 
   async createRequest(input: NewRequestInput): Promise<string> {
-    const patient = unwrapId(
-      await supabase
-        .from("patients")
-        .upsert(
-          {
-            nome: input.nome,
-            cpf: input.cpf,
-            telefone: input.telefone || null,
-            nascimento: input.nascimento || null,
-          },
-          { onConflict: "cpf" },
-        )
-        .select("id")
-        .single(),
-    );
-
-    const numero = `SOL-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000 + 1000)}`;
     const porMedico = input.origem === "medico" && !!input.medico;
-    const dadosMedicos = porMedico
-      ? {
-          honorarios_medicos: input.medico!.honorariosMedicos,
-          diaria: input.medico!.diaria,
-          cti: input.medico!.cti,
-          opme: input.medico!.opme,
-          anatomo_patologico: input.medico!.anatomoPatologico,
-          reserva_sangue: input.medico!.reservaSangue,
-          equipe_multidisciplinar: input.medico!.equipeMultidisciplinar,
-          fisioterapia: input.medico!.fisioterapia,
-          tempo_bloco: input.medico!.tempoBloco,
-          obs_medico: input.medico!.obsMedico,
-          preenchido_medico_em: new Date().toISOString(),
-        }
-      : {};
-
-    const created = unwrapId(
-      await supabase
-        .from("consultation_requests")
-        .insert({
-          numero,
-          patient_id: patient.id,
-          especialidade: input.especialidade || null,
-          tipo_consulta: input.tipoConsulta || null,
-          data_desejada: input.dataDesejada || null,
-          observacoes: input.observacoes || null,
-          status: porMedico ? "aguardando_comercial" : "aguardando_medico",
-          ...dadosMedicos,
-        })
-        .select("id")
-        .single(),
-    );
-
-    await supabase.from("request_events").insert(
-      porMedico
-        ? [
-            {
-              request_id: created.id,
-              titulo: "Solicitação criada",
-              descricao: "Registrada pelo médico responsável",
-              ordem: 1,
-            },
-            {
-              request_id: created.id,
-              titulo: "Honorários preenchidos",
-              descricao: "Valores informados na criação pelo médico",
-              ordem: 3,
-            },
-            {
-              request_id: created.id,
-              titulo: "Enviada ao Comercial",
-              descricao: "Aguardando valores hospitalares",
-              ordem: 4,
-            },
-          ]
-        : [
-            {
-              request_id: created.id,
-              titulo: "Solicitação criada",
-              descricao: "Registrada no portal",
-              ordem: 1,
-            },
-            {
-              request_id: created.id,
-              titulo: "Solicitação enviada ao médico",
-              descricao: "Encaminhada para preenchimento de honorários",
-              ordem: 2,
-            },
-          ],
-    );
-
-    return created.id;
+    return portalRpc<string>("portal_criar_orcamento", {
+      p_dados: {
+        nome: input.nome,
+        cpf: input.cpf,
+        telefone: input.telefone || null,
+        nascimento: input.nascimento || null,
+        especialidade: input.especialidade || null,
+        tipoConsulta: input.tipoConsulta || null,
+        dataDesejada: input.dataDesejada || null,
+        observacoes: input.observacoes || null,
+        origem: porMedico ? "medico" : "comercial",
+        medico: porMedico ? input.medico : null,
+      },
+    });
   },
 
   async saveDoctorFees(requestId: string, input: DoctorFeesInput): Promise<void> {
-    const { error } = await supabase
-      .from("consultation_requests")
-      .update({
-        honorarios_medicos: input.honorariosMedicos,
-        diaria: input.diaria,
-        cti: input.cti,
-        opme: input.opme,
-        anatomo_patologico: input.anatomoPatologico,
-        reserva_sangue: input.reservaSangue,
-        equipe_multidisciplinar: input.equipeMultidisciplinar,
-        fisioterapia: input.fisioterapia,
-        tempo_bloco: input.tempoBloco,
-        obs_medico: input.obsMedico,
-        preenchido_medico_em: new Date().toISOString(),
-        status: "aguardando_comercial",
-      })
-      .eq("id", requestId);
-    if (error) throw new Error(error.message);
-    await supabase.from("request_events").insert({
-      request_id: requestId,
-      titulo: "Honorários preenchidos",
-      descricao: "Valores informados pelo médico responsável",
-      ordem: 3,
-    });
+    await portalRpc("portal_salvar_honorarios", { p_id: requestId, p_dados: input });
   },
 
   // Inativa o orçamento: sai da lista de ativos e fica bloqueado para alterações.
   // Não há exclusão — o registro é mantido no histórico.
   async deactivateRequest(requestId: string, motivo: string): Promise<void> {
-    const { error } = await supabase
-      .from("consultation_requests")
-      .update({ status: "inativo" })
-      .eq("id", requestId);
-    if (error) throw new Error(error.message);
-    await supabase.from("request_events").insert({
-      request_id: requestId,
-      titulo: "Orçamento inativado",
-      descricao: motivo,
-      ordem: 9,
-    });
+    await portalRpc("portal_inativar_orcamento", { p_id: requestId, p_motivo: motivo });
   },
 
   async saveHospitalValue(requestId: string, valor: number | null, obs: string): Promise<void> {
-    const { error } = await supabase
-      .from("consultation_requests")
-      .update({
-        valor_hospitalar: valor,
-        obs_comercial: obs,
-        preenchido_comercial_em: new Date().toISOString(),
-        status: "concluido",
-      })
-      .eq("id", requestId);
-    if (error) throw new Error(error.message);
-    await supabase.from("request_events").insert({
-      request_id: requestId,
-      titulo: "Valor hospitalar preenchido",
-      descricao: "Orçamento concluído pelo setor Comercial",
-      ordem: 5,
+    await portalRpc("portal_salvar_valor_hospitalar", {
+      p_id: requestId,
+      p_valor: valor,
+      p_obs: obs,
     });
   },
 
   async listDoctors(): Promise<Doctor[]> {
-    const data = unwrap(
-      await supabase
-        .from("portal_users")
-        .select("id, nome, ativo")
-        .eq("perfil", "medico")
-        .eq("ativo", true)
-        .order("nome"),
-    );
-    return (data as any[]).map((d) => ({
+    const data = await portalRpc<any[] | null>("portal_listar_medicos");
+    return (data ?? []).map((d) => ({
       id: d.id,
       nome: d.nome,
       crm: "",
@@ -385,12 +269,7 @@ const supabaseRepository = {
   },
 
   async listUsers(): Promise<PortalUser[]> {
-    const data = unwrap(
-      await supabase
-        .from("portal_users")
-        .select("id, nome, email, perfil, ativo, ultimo_acesso")
-        .order("nome"),
-    );
+    const data = (await portalRpc<any[] | null>("portal_listar_usuarios")) ?? [];
     const labels: Record<string, PortalUser["perfil"]> = {
       administrador: "Administrador",
       comercial: "Comercial",
@@ -419,7 +298,7 @@ const supabaseRepository = {
       }
       return user;
     }
-    const { data, error } = await (supabase as any).rpc("verificar_login", {
+    const { data, error } = await (supabase as any).rpc("iniciar_sessao", {
       p_email: email,
       p_senha: senha,
     });
@@ -437,6 +316,7 @@ const supabaseRepository = {
       email: row.email as string,
       perfil: (labels[row.perfil] ?? "Comercial") as PortalUser["perfil"],
       telefone: (row.telefone as string | null) ?? "",
+      token: row.token as string,
     };
   },
 
@@ -496,13 +376,7 @@ const supabaseRepository = {
   },
 
   async getTimeline(requestId: string): Promise<TimelineEvent[]> {
-    const data = unwrap(
-      await supabase
-        .from("request_events")
-        .select("titulo, descricao, concluido, criado_em, ordem")
-        .eq("request_id", requestId)
-        .order("ordem"),
-    );
+    const data = (await portalRpc<any[] | null>("portal_linha_do_tempo", { p_id: requestId })) ?? [];
     const registrados = (data as any[]).map((e) => ({
       titulo: e.titulo,
       descricao: e.descricao ?? "",
