@@ -29,6 +29,7 @@ import { RequiredMark } from "./item-quantity";
 import { useCreateSurgicalAppointment } from "@/lib/data/hooks";
 import { useSession } from "@/lib/auth/session";
 import { isValidCpf } from "@/lib/data/tasy";
+import { TasyPatientSearch } from "@/components/portal/tasy-patient-search";
 import {
   emptySurgicalRequestDetails,
   type SurgicalMaterialItem,
@@ -217,6 +218,7 @@ function MaterialRows({
 export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [patientSelected, setPatientSelected] = useState(false);
   const create = useCreateSurgicalAppointment();
   const { user } = useSession();
 
@@ -298,6 +300,7 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
       });
       toast.success("Solicitação de procedimento cirúrgico criada.");
       setForm(initialForm);
+      setPatientSelected(false);
       setOpen(false);
     } catch (error) {
       toast.error(
@@ -326,12 +329,29 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
           {/* Paciente e dados clínicos */}
           <div className="grid gap-4">
             <SectionTitle>Paciente</SectionTitle>
+            {open && (
+              <TasyPatientSearch
+                onNotFound={(cpf) => {
+                  setPatientSelected(false);
+                  set("patientCpf", cpf);
+                }}
+                onSelect={(person) => {
+                  setPatientSelected(true);
+                  setForm((current) => ({
+                    ...current,
+                    patientName: person.nmPessoaFisica ?? "",
+                    patientCpf: person.nrCpf ?? "",
+                  }));
+                }}
+              />
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={<span>Nome do paciente <RequiredMark /></span>}>
                 <Input
                   value={form.patientName}
                   maxLength={120}
                   autoComplete="name"
+                  disabled={patientSelected}
                   onChange={(event) => set("patientName", event.target.value)}
                 />
               </Field>
@@ -341,7 +361,11 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
                   inputMode="numeric"
                   maxLength={14}
                   placeholder="000.000.000-00"
-                  onChange={(event) => set("patientCpf", event.target.value)}
+                  disabled={patientSelected}
+                  onChange={(event) => {
+                    setPatientSelected(false);
+                    set("patientCpf", event.target.value);
+                  }}
                 />
               </Field>
             </div>
