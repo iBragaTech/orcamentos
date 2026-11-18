@@ -15,6 +15,13 @@
       "when": 1795030518847,
       "tag": "0001_lock_institution_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795035933510,
+      "tag": "0002_request_doctor_user",
+      "breakpoints": true
     }
   ]
 }

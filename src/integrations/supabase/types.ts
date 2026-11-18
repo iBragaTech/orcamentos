@@ -22,6 +22,7 @@ export type Database = {
           data_desejada: string | null
           diaria: number | null
           doctor_id: string | null
+          doctor_user_id: string | null
           equipe_multidisciplinar: string | null
           especialidade: string | null
           fisioterapia: number | null
@@ -49,6 +50,7 @@ export type Database = {
           data_desejada?: string | null
           diaria?: number | null
           doctor_id?: string | null
+          doctor_user_id?: string | null
           equipe_multidisciplinar?: string | null
           especialidade?: string | null
           fisioterapia?: number | null
@@ -76,6 +78,7 @@ export type Database = {
           data_desejada?: string | null
           diaria?: number | null
           doctor_id?: string | null
+          doctor_user_id?: string | null
           equipe_multidisciplinar?: string | null
           especialidade?: string | null
           fisioterapia?: number | null
@@ -102,6 +105,13 @@ export type Database = {
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_requests_doctor_user_id_fkey"
+            columns: ["doctor_user_id"]
+            isOneToOne: false
+            referencedRelation: "portal_users"
             referencedColumns: ["id"]
           },
           {

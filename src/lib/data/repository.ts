@@ -126,6 +126,8 @@ export interface NewRequestInput {
   // Quando o próprio médico cria o orçamento, ele já informa os dados médicos
   // e o orçamento segue direto para o setor Comercial.
   origem?: "comercial" | "medico";
+  // Médico solicitante escolhido pelo Comercial/Administrador (usuário com perfil Médico).
+  medicoUserId?: string;
   medico?: DoctorFeesInput;
 }
 
@@ -233,6 +235,7 @@ const supabaseRepository = {
         dataDesejada: input.dataDesejada || null,
         observacoes: input.observacoes || null,
         origem: porMedico ? "medico" : "comercial",
+        medicoUserId: input.medicoUserId || null,
         medico: porMedico ? input.medico : null,
       },
     });
