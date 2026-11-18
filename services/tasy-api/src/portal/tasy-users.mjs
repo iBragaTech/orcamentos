@@ -18,6 +18,8 @@ export function principalForLink(link) {
     operations: [
       "usuarios.consultar",
       "pessoas-fisicas.consultar",
+      "pessoas-fisicas.consultar-alergias",
+      "pessoas-fisicas.consultar-cids",
       "pessoas-fisicas.buscar-cpf",
       "catalogos.convenios",
       "catalogos.categorias",
@@ -89,6 +91,16 @@ export function createLinkResolver(db, validate) {
         cdEstabelecimento: p.tasyEstablishment,
       });
     const operations = [...p.operations];
+    if (
+      operations.includes("pessoas-fisicas.consultar") &&
+      !operations.includes("pessoas-fisicas.consultar-alergias")
+    )
+      operations.push("pessoas-fisicas.consultar-alergias");
+    if (
+      operations.includes("pessoas-fisicas.consultar") &&
+      !operations.includes("pessoas-fisicas.consultar-cids")
+    )
+      operations.push("pessoas-fisicas.consultar-cids");
     if (
       operations.includes("catalogos.procedimentos") &&
       !operations.includes("catalogos.procedimentos-internos")

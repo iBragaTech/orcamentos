@@ -116,17 +116,31 @@ export const catalogoOperations = {
   "catalogos.convenios": {
     kind: "read",
     authorize: active,
-    schema: z.object({ ...pagination, busca: z.string().trim().max(80).default("") }).strict(),
-    execute: ({ connection, input }) =>
-      page(
-        connection,
+    schema: z
+      .object({
+        ...pagination,
+        busca: z.string().trim().max(80).default(""),
+        limit: z.number().int().min(1).max(100).default(100),
+      })
+      .strict(),
+    execute: async ({ connection, input }) => {
+      const { limit, ...binds } = input;
+      const result = await connection.execute(
         `SELECT
-      TO_CHAR(cd_convenio) AS "codigo", ds_convenio AS "nome"
-      FROM TASY.convenio WHERE ie_situacao = 'A' AND ds_convenio IS NOT NULL
-      AND (:busca IS NULL OR INSTR(UPPER(ds_convenio), UPPER(:busca)) > 0 OR TO_CHAR(cd_convenio) = :busca)
-      ORDER BY ds_convenio, cd_convenio OFFSET :offset ROWS FETCH NEXT 101 ROWS ONLY`,
-        input,
-      ),
+          TO_CHAR(cd_convenio) AS "codigo", ds_convenio AS "nome"
+        FROM TASY.convenio WHERE ie_situacao = 'A' AND ds_convenio IS NOT NULL
+          AND (:busca IS NULL OR INSTR(UPPER(ds_convenio), UPPER(:busca)) > 0
+            OR TO_CHAR(cd_convenio) = :busca)
+        ORDER BY ds_convenio, cd_convenio
+        OFFSET :offset ROWS FETCH NEXT ${limit + 1} ROWS ONLY`,
+        binds,
+        { maxRows: limit + 1 },
+      );
+      return {
+        items: result.rows.slice(0, limit),
+        hasMore: result.rows.length > limit,
+      };
+    },
   },
   "catalogos.categorias": {
     kind: "read",

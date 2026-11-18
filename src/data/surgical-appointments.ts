@@ -6,6 +6,8 @@ export type SurgicalAppointmentStatus = "solicitado" | "confirmado" | "cancelado
 export interface SurgicalMaterialItem {
   material: string;
   quantidade: number | null;
+  codigo?: string;
+  grupo?: string | null;
 }
 
 /** Detalhes completos da solicitação de procedimento cirúrgico. */
@@ -23,6 +25,7 @@ export interface SurgicalRequestDetails {
   origemPaciente: string;
   origemOutros: string;
   convenio: string;
+  cdConvenio?: string;
   dataCirurgia: string; // datetime-local
   duracaoPrevistaMin: number | null;
   porte: string;
@@ -78,6 +81,7 @@ export const emptySurgicalRequestDetails: SurgicalRequestDetails = {
   origemPaciente: "",
   origemOutros: "",
   convenio: "",
+  cdConvenio: "",
   dataCirurgia: "",
   duracaoPrevistaMin: null,
   porte: "",

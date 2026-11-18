@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { TagInput } from "./tag-input";
 import { TasyInternalProcedureSelect } from "./tasy-internal-procedure-select";
+import { TasyOpmeSelect, type TasyOpmeItem } from "./tasy-opme-select";
+import { TasySurgicalInsuranceSelect } from "./tasy-surgical-insurance-select";
 import { RequiredMark } from "./item-quantity";
 import { useCreateSurgicalAppointment } from "@/lib/data/hooks";
 import { useSession } from "@/lib/auth/session";
 import { isValidCpf } from "@/lib/data/tasy";
+import { getTasyClient } from "@/lib/data/tasy-supabase";
 import { TasyPatientSearch } from "@/components/portal/tasy-patient-search";
 import {
   emptySurgicalRequestDetails,
@@ -219,6 +222,10 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(initialForm);
   const [patientSelected, setPatientSelected] = useState(false);
+  const [allergiesLoading, setAllergiesLoading] = useState(false);
+  const [cidsLoading, setCidsLoading] = useState(false);
+  const allergyLookupRevision = useRef(0);
+  const cidLookupRevision = useRef(0);
   const create = useCreateSurgicalAppointment();
   const { user } = useSession();
 
@@ -234,6 +241,8 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
   }
 
   async function submit() {
+    if (allergiesLoading || cidsLoading)
+      return void toast.info("Aguarde a consulta dos dados clínicos no Tasy.");
     const cpf = form.patientCpf.replace(/\D/g, "");
     if (!form.patientName.trim()) return void toast.error("Informe o nome do paciente.");
     if (!isValidCpf(cpf)) return void toast.error("Informe um CPF válido.");
@@ -257,7 +266,7 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
     if (!form.origemPaciente) return void toast.error("Informe a origem do paciente.");
     if (form.origemPaciente === "Outros" && !form.origemOutros.trim())
       return void toast.error("Descreva a origem do paciente.");
-    if (!form.convenio.trim()) return void toast.error("Informe o convênio.");
+    if (!form.cdConvenio?.trim()) return void toast.error("Selecione um convênio ativo no Tasy.");
     if (!form.dataCirurgia) return void toast.error("Informe a data prevista da cirurgia.");
     if (form.dataCirurgia.slice(0, 10) < today())
       return void toast.error("A data prevista da cirurgia não pode estar no passado.");
@@ -301,6 +310,8 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
       toast.success("Solicitação de procedimento cirúrgico criada.");
       setForm(initialForm);
       setPatientSelected(false);
+      allergyLookupRevision.current++;
+      cidLookupRevision.current++;
       setOpen(false);
     } catch (error) {
       toast.error(
@@ -332,16 +343,67 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
             {open && (
               <TasyPatientSearch
                 onNotFound={(cpf) => {
+                  allergyLookupRevision.current++;
+                  cidLookupRevision.current++;
+                  setAllergiesLoading(false);
+                  setCidsLoading(false);
                   setPatientSelected(false);
-                  set("patientCpf", cpf);
+                  setForm((current) => ({ ...current, patientCpf: cpf, alergias: "", cid: "" }));
                 }}
                 onSelect={(person) => {
+                  const allergyRevision = ++allergyLookupRevision.current;
+                  const cidRevision = ++cidLookupRevision.current;
                   setPatientSelected(true);
+                  setAllergiesLoading(true);
+                  setCidsLoading(true);
                   setForm((current) => ({
                     ...current,
                     patientName: person.nmPessoaFisica ?? "",
                     patientCpf: person.nrCpf ?? "",
+                    alergias: "",
+                    cid: "",
                   }));
+                  void Promise.resolve()
+                    .then(() =>
+                      getTasyClient().executeOperation<{ alergias: string | null }>(
+                        "pessoas-fisicas.consultar-alergias",
+                        { cdPessoaFisica: person.cdPessoaFisica },
+                      ),
+                    )
+                    .then((result) => {
+                      if (allergyRevision === allergyLookupRevision.current)
+                        setD("alergias", result.alergias?.trim() ?? "");
+                    })
+                    .catch(() => {
+                      if (allergyRevision === allergyLookupRevision.current)
+                        toast.error(
+                          "Paciente selecionado, mas não foi possível consultar alergias no Tasy. Preencha manualmente.",
+                        );
+                    })
+                    .finally(() => {
+                      if (allergyRevision === allergyLookupRevision.current)
+                        setAllergiesLoading(false);
+                    });
+                  void Promise.resolve()
+                    .then(() =>
+                      getTasyClient().executeOperation<{ cids: string[] }>(
+                        "pessoas-fisicas.consultar-cids",
+                        { cdPessoaFisica: person.cdPessoaFisica },
+                      ),
+                    )
+                    .then((result) => {
+                      if (cidRevision === cidLookupRevision.current)
+                        setD("cid", result.cids.join("\n"));
+                    })
+                    .catch(() => {
+                      if (cidRevision === cidLookupRevision.current)
+                        toast.error(
+                          "Paciente selecionado, mas não foi possível consultar CIDs no Tasy. Preencha manualmente.",
+                        );
+                    })
+                    .finally(() => {
+                      if (cidRevision === cidLookupRevision.current) setCidsLoading(false);
+                    });
                 }}
               />
             )}
@@ -382,16 +444,34 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
                 rows={3}
                 value={form.alergias}
                 maxLength={1000}
-                onChange={(event) => setD("alergias", event.target.value)}
+                onChange={(event) => {
+                  allergyLookupRevision.current++;
+                  setAllergiesLoading(false);
+                  setD("alergias", event.target.value);
+                }}
               />
+              {allergiesLoading && (
+                <p role="status" className="text-xs text-muted-foreground">
+                  Consultando alergias no Tasy…
+                </p>
+              )}
             </Field>
             <Field label={<span>CID <RequiredMark /></span>}>
               <Textarea
                 rows={3}
                 value={form.cid}
                 maxLength={1000}
-                onChange={(event) => setD("cid", event.target.value)}
+                onChange={(event) => {
+                  cidLookupRevision.current++;
+                  setCidsLoading(false);
+                  setD("cid", event.target.value);
+                }}
               />
+              {cidsLoading && (
+                <p role="status" className="text-xs text-muted-foreground">
+                  Consultando CIDs no Tasy…
+                </p>
+              )}
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <YesNoField
@@ -483,11 +563,16 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={<span>Convênio <RequiredMark /></span>}>
-                <Input
-                  value={form.convenio}
-                  maxLength={120}
-                  placeholder="Nome do convênio"
-                  onChange={(event) => setD("convenio", event.target.value)}
+                <TasySurgicalInsuranceSelect
+                  value={form.cdConvenio ?? ""}
+                  label={form.convenio}
+                  onChange={(item) =>
+                    setForm((current) => ({
+                      ...current,
+                      cdConvenio: item.codigo,
+                      convenio: `${item.codigo} - ${item.nome}`,
+                    }))
+                  }
                 />
               </Field>
               <Field label={<span>Cirurgião <RequiredMark /></span>}>
@@ -623,10 +708,24 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
               />
             </div>
             <Field label="Descrição do material especial (OPME)">
-              <MaterialRows
-                items={form.opme}
-                onChange={(items) => setD("opme", items)}
-                materialLabel="Material"
+              <TasyOpmeSelect
+                value={form.opme.map((item) => ({
+                  codigo: item.codigo ?? item.material,
+                  nome: item.material,
+                  grupo: item.grupo ?? null,
+                  quantidade: item.quantidade ?? 1,
+                }))}
+                onChange={(items: TasyOpmeItem[]) =>
+                  setD(
+                    "opme",
+                    items.map((item) => ({
+                      codigo: item.codigo,
+                      material: item.nome,
+                      grupo: item.grupo,
+                      quantidade: item.quantidade ?? 1,
+                    })),
+                  )
+                }
               />
             </Field>
           </div>

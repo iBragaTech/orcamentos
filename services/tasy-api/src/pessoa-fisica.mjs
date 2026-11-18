@@ -159,6 +159,51 @@ export function pessoaFisicaOperations({ directDmlEnabled }) {
         return result.rows[0];
       },
     },
+    "pessoas-fisicas.consultar-alergias": {
+      kind: "read",
+      schema: z.object({ cdPessoaFisica: code }).strict(),
+      authorize: ({ input, principal }) => canAccess(principal, input.cdPessoaFisica),
+      execute: async ({ connection, input }) => {
+        const result = await connection.execute(
+          `SELECT TASY.Obter_Alergias(p.cd_pessoa_fisica) AS "alergias"
+           FROM TASY.pessoa_fisica p
+           WHERE p.cd_pessoa_fisica = :cdPessoaFisica`,
+          input,
+          { maxRows: 2 },
+        );
+        if (!result.rows?.length)
+          throw new ApiError(404, "NOT_FOUND", "Pessoa física não encontrada.");
+        if (result.rows.length !== 1)
+          throw new ApiError(409, "AMBIGUOUS_RECORD", "Código de pessoa física não é único.");
+        const value = result.rows[0].alergias;
+        return { alergias: typeof value === "string" ? value.trim() : value ?? "" };
+      },
+    },
+    "pessoas-fisicas.consultar-cids": {
+      kind: "read",
+      schema: z.object({ cdPessoaFisica: code }).strict(),
+      authorize: ({ input, principal }) => canAccess(principal, input.cdPessoaFisica),
+      execute: async ({ connection, input }) => {
+        const result = await connection.execute(
+          `SELECT DISTINCT b.cd_doenca || ' - ' || c.ds_doenca_cid AS "cid"
+           FROM TASY.atendimento_paciente a
+           JOIN TASY.diagnostico_doenca b ON b.nr_atendimento = a.nr_atendimento
+           JOIN TASY.cid_doenca c ON c.cd_doenca_cid = b.cd_doenca AND c.ie_situacao = 'A'
+           WHERE a.cd_pessoa_fisica = :cdPessoaFisica
+             AND b.dt_liberacao IS NOT NULL
+             AND b.dt_inativacao IS NULL
+             AND b.ie_situacao = 'A'
+           ORDER BY "cid"`,
+          input,
+          { maxRows: 100 },
+        );
+        return {
+          cids: (result.rows ?? [])
+            .map((row) => row.cid)
+            .filter((value) => typeof value === "string" && value.trim().length > 0),
+        };
+      },
+    },
     "pessoas-fisicas.salvar": {
       kind: "write",
       schema: fields
