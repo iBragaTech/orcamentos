@@ -15,6 +15,7 @@ export interface ProcedureSelectionItem {
   nome: string;
   quantidade: number;
   origem: "catalogo" | "digitado";
+  cdProcedimento?: string | null;
 }
 
 export const procedureCatalog: ProcedureItem[] = [

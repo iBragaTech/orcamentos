@@ -7,6 +7,35 @@ const page = async (connection, sql, binds) => {
   return { items: result.rows.slice(0, 100), hasMore: result.rows.length > 100 };
 };
 export const catalogoOperations = {
+  "catalogos.procedimentos-internos": {
+    kind: "read",
+    authorize: ({ principal }) =>
+      principal.enabled === true &&
+      Number.isInteger(principal.tasyEstablishment) &&
+      principal.tasyEstablishment > 0,
+    schema: z
+      .object({
+        ...pagination,
+        busca: z.string().trim().min(2).max(80),
+      })
+      .strict(),
+    execute: ({ connection, input }) =>
+      page(
+        connection,
+        `SELECT TO_CHAR(p.nr_sequencia) AS "codigo",
+          TO_CHAR(p.nr_sequencia) AS "nrSequencia",
+          TRIM(p.ds_proc_exame) AS "nome",
+          TRIM(TO_CHAR(p.cd_procedimento)) AS "cdProcedimento"
+        FROM TASY.proc_interno p
+        WHERE p.ie_situacao = 'A' AND p.ds_proc_exame IS NOT NULL
+          AND (INSTR(UPPER(p.ds_proc_exame), UPPER(:busca)) > 0
+            OR TRIM(TO_CHAR(p.nr_sequencia)) LIKE TRIM(:busca) || '%'
+            OR TRIM(TO_CHAR(p.cd_procedimento)) LIKE TRIM(:busca) || '%')
+        ORDER BY p.ds_proc_exame, p.nr_sequencia
+        OFFSET :offset ROWS FETCH NEXT 101 ROWS ONLY`,
+        input,
+      ),
+  },
   "catalogos.procedimentos": {
     kind: "read",
     authorize: ({ principal }) =>

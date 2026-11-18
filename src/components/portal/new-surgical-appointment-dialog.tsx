@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TagInput } from "./tag-input";
-import { ProcedureSelect } from "./procedure-select";
+import { TasyInternalProcedureSelect } from "./tasy-internal-procedure-select";
 import { RequiredMark } from "./item-quantity";
 import { useCreateSurgicalAppointment } from "@/lib/data/hooks";
 import { useSession } from "@/lib/auth/session";
@@ -421,14 +421,14 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
           <div className="grid gap-4">
             <SectionTitle>Informações sobre a cirurgia</SectionTitle>
             <Field label={<span>Procedimento principal <RequiredMark /></span>}>
-              <ProcedureSelect
+              <TasyInternalProcedureSelect
                 value={form.procedimentoPrincipal}
                 onChange={(items) => setD("procedimentoPrincipal", items)}
                 placeholder="Pesquisar procedimento principal..."
               />
             </Field>
             <Field label="Procedimentos adicionais">
-              <ProcedureSelect
+              <TasyInternalProcedureSelect
                 value={form.procedimentosAdicionais}
                 onChange={(items) => setD("procedimentosAdicionais", items)}
                 placeholder="Pesquisar procedimentos adicionais..."

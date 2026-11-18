@@ -90,6 +90,11 @@ export function createLinkResolver(db, validate) {
       });
     const operations = [...p.operations];
     if (
+      operations.includes("catalogos.procedimentos") &&
+      !operations.includes("catalogos.procedimentos-internos")
+    )
+      operations.push("catalogos.procedimentos-internos");
+    if (
       ["Médico", "Administrador"].includes(user.perfil) &&
       operations.includes("pessoas-fisicas.consultar") &&
       !operations.includes("pessoas-fisicas.atualizar-email")
