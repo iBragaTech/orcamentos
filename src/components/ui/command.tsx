@@ -57,13 +57,33 @@ CommandInput.displayName = CommandPrimitive.Input.displayName;
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.List
-    ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
-    {...props}
-  />
-));
+>(({ className, ...props }, ref) => {
+  const listRef = React.useRef<React.ElementRef<typeof CommandPrimitive.List>>(null);
+  React.useImperativeHandle(ref, () => listRef.current as React.ElementRef<typeof CommandPrimitive.List>);
+
+  // Lists open over a dialog: the dialog's scroll lock can swallow mouse-wheel
+  // scrolling, so the list scrolls itself.
+  React.useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (el.scrollHeight <= el.clientHeight) return;
+      const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? el.clientHeight : 1;
+      event.preventDefault();
+      el.scrollTop += event.deltaY * factor;
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  return (
+    <CommandPrimitive.List
+      ref={listRef}
+      className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
+      {...props}
+    />
+  );
+});
 
 CommandList.displayName = CommandPrimitive.List.displayName;
 
