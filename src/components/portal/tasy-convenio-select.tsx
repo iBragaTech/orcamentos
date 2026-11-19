@@ -50,7 +50,7 @@ export function TasyConvenioSelect({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover modal open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -65,9 +65,8 @@ export function TasyConvenioSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0"
+        className="w-(--radix-popover-trigger-width) p-0"
         align="start"
-        onWheel={(event) => event.stopPropagation()}
       >
         <Command shouldFilter={false}>
           <CommandInput
