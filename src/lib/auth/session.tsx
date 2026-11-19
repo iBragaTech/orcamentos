@@ -22,6 +22,8 @@ export type SessionUser = {
   email: string;
   perfil: Perfil;
   telefone?: string;
+  // Token de sessão emitido pelo banco no login; exigido em toda operação de dados.
+  token?: string;
 };
 
 type SessionContextValue = {
@@ -94,7 +96,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setUser(JSON.parse(raw) as SessionUser);
+      const saved = raw ? (JSON.parse(raw) as SessionUser) : null;
+      // Sessões antigas (sem token) não são mais aceitas pelo banco: pede novo login.
+      if (saved?.token) setUser(saved);
+      else if (raw) localStorage.removeItem(STORAGE_KEY);
     } catch {
       /* sessão inválida — ignora */
     }
@@ -139,6 +144,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (supabaseAuthEnabled) {
       const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw new Error("Não foi possível encerrar a sessão. Tente novamente.");
+    }
+    if (!localAuthEnabled && !supabaseAuthEnabled) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const token = raw ? (JSON.parse(raw) as SessionUser).token : undefined;
+        if (token) await (supabase as any).rpc("encerrar_sessao", { p_token: token });
+      } catch {
+        /* encerra localmente mesmo se a chamada falhar */
+      }
     }
     queryClient.clear();
     setUser(null);

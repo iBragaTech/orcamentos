@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TasyInsuranceSelect } from "@/components/portal/tasy-insurance-select";
-import { useCreateRequest } from "@/lib/data/hooks";
+import { useCreateRequest, useDoctors } from "@/lib/data/hooks";
 import { TasyOpmeSelect, type TasyOpmeItem } from "@/components/portal/tasy-opme-select";
 import {
   TasyMaterialSelect,
@@ -91,10 +91,12 @@ export function NewRequestDialog({
   const [ctiOpcao, setCtiOpcao] = useState<"possui" | "reserva" | "nao">("nao");
   const [sangue, setSangue] = useState<string[]>([]);
   const [multidisciplinar, setMultidisciplinar] = useState<EquipeItem[]>([]);
+  const [medicoUserId, setMedicoUserId] = useState("");
   const create = useCreateRequest();
   const { user } = useSession();
   const origem = user?.perfil === "Médico" ? "medico" : origemProp;
   const isMedico = origem === "medico";
+  const { data: medicos = [], isLoading: medicosLoading } = useDoctors();
   const diariaCtiAtiva = ctiOpcao !== "nao";
   const patientFieldsEditable = patientNotFound;
   const blockTime = useDoctorBlockTime({
@@ -109,6 +111,10 @@ export function NewRequestDialog({
   async function handleSubmit() {
     if (blockTime.loading) {
       toast.info("Aguarde a consulta do tempo médio do médico.");
+      return;
+    }
+    if (!isMedico && !medicoUserId) {
+      toast.error("Selecione o médico solicitante.");
       return;
     }
     if (!form.nome.trim() || !form.cpf.trim()) {
@@ -250,6 +256,7 @@ export function NewRequestDialog({
         especialidade: principalTexto,
         observacoes,
         origem,
+        ...(!isMedico ? { medicoUserId } : {}),
         ...(tasyPatientCode &&
         catalogContext.cdConvenio &&
         catalogContext.cdCategoria &&
@@ -319,6 +326,7 @@ export function NewRequestDialog({
       setAdicionais([]);
       setSangue([]);
       setMultidisciplinar([]);
+      setMedicoUserId("");
       setCatalogContext({ cdConvenio: "", cdCategoria: "" });
 
       setOpen(false);
@@ -363,6 +371,39 @@ export function NewRequestDialog({
         </DialogHeader>
 
         <div className="grid gap-6">
+          {!isMedico && (
+            <section className="grid gap-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Médico solicitante
+              </h3>
+              <div className="grid gap-2 sm:max-w-md">
+                <Label htmlFor="medico-solicitante">
+                  Médico solicitante
+                  <RequiredMark />
+                </Label>
+                <Select value={medicoUserId} onValueChange={setMedicoUserId}>
+                  <SelectTrigger id="medico-solicitante" aria-label="Médico solicitante">
+                    <SelectValue
+                      placeholder={
+                        medicosLoading
+                          ? "Carregando médicos..."
+                          : medicos.length
+                            ? "Selecione o médico"
+                            : "Nenhum médico cadastrado"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {medicos.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </section>
+          )}
           <section className="grid gap-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Dados do paciente

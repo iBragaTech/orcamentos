@@ -336,7 +336,7 @@ export function buildQuoteHtml(
     ${field("Convênio", convenioLabel || tasy?.cdConvenio || "—")}
     ${field("Cond. Pagamento", "Conforme Vencimentos")}
     ${field("Solicitante", request.solicitante || request.medico || "—")}
-    ${field("Nome do médico", `${request.medico} · ${request.crm}`)}
+    ${field("Nome do médico", request.crm && request.crm !== "—" ? `${request.medico} · ${request.crm}` : request.medico)}
     ${field("Categoria", categoriaLabel || tasy?.cdCategoria || "—")}
     ${field("Status Orçamento", quoteStatusLabel(request) || (request.status === "concluido" ? "Aprovado" : "Em aprovação"))}
   </table>

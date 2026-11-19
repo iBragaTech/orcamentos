@@ -22,6 +22,7 @@ export type Database = {
           data_desejada: string | null
           diaria: number | null
           doctor_id: string | null
+          doctor_user_id: string | null
           equipe_multidisciplinar: string | null
           especialidade: string | null
           fisioterapia: number | null
@@ -49,6 +50,7 @@ export type Database = {
           data_desejada?: string | null
           diaria?: number | null
           doctor_id?: string | null
+          doctor_user_id?: string | null
           equipe_multidisciplinar?: string | null
           especialidade?: string | null
           fisioterapia?: number | null
@@ -76,6 +78,7 @@ export type Database = {
           data_desejada?: string | null
           diaria?: number | null
           doctor_id?: string | null
+          doctor_user_id?: string | null
           equipe_multidisciplinar?: string | null
           especialidade?: string | null
           fisioterapia?: number | null
@@ -102,6 +105,13 @@ export type Database = {
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_requests_doctor_user_id_fkey"
+            columns: ["doctor_user_id"]
+            isOneToOne: false
+            referencedRelation: "portal_users"
             referencedColumns: ["id"]
           },
           {
@@ -205,6 +215,35 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      portal_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "portal_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       portal_users: {
         Row: {
@@ -387,6 +426,18 @@ export type Database = {
         Args: { p_senha: string; p_user_id: string }
         Returns: undefined
       }
+      encerrar_sessao: { Args: { p_token: string }; Returns: undefined }
+      iniciar_sessao: {
+        Args: { p_email: string; p_senha: string }
+        Returns: {
+          email: string
+          id: string
+          nome: string
+          perfil: Database["public"]["Enums"]["user_profile"]
+          telefone: string
+          token: string
+        }[]
+      }
       listar_agendamentos_cirurgicos: {
         Args: { p_perfil: string; p_user_id: string }
         Returns: {
@@ -399,6 +450,90 @@ export type Database = {
           patient_cpf: string
           patient_name: string
           status: string
+        }[]
+      }
+      portal_criar_orcamento: {
+        Args: { p_dados: Json; p_token: string }
+        Returns: string
+      }
+      portal_inativar_orcamento: {
+        Args: { p_id: string; p_motivo: string; p_token: string }
+        Returns: undefined
+      }
+      portal_linha_do_tempo: {
+        Args: { p_id: string; p_token: string }
+        Returns: {
+          concluido: boolean
+          criado_em: string
+          descricao: string
+          ordem: number
+          titulo: string
+        }[]
+      }
+      portal_listar_medicos: {
+        Args: { p_token: string }
+        Returns: {
+          ativo: boolean
+          id: string
+          nome: string
+        }[]
+      }
+      portal_listar_orcamentos: { Args: { p_token: string }; Returns: Json }
+      portal_listar_usuarios: {
+        Args: { p_token: string }
+        Returns: {
+          ativo: boolean
+          email: string
+          id: string
+          nome: string
+          perfil: Database["public"]["Enums"]["user_profile"]
+          ultimo_acesso: string
+        }[]
+      }
+      portal_obter_configuracoes: {
+        Args: { p_token: string }
+        Returns: {
+          cnpj: string
+          email_notificacoes: string
+          endereco: string
+          nome: string
+          telefone: string
+        }[]
+      }
+      portal_obter_orcamento: {
+        Args: { p_id: string; p_token: string }
+        Returns: Json
+      }
+      portal_orcamento_json: {
+        Args: {
+          r: Database["public"]["Tables"]["consultation_requests"]["Row"]
+        }
+        Returns: Json
+      }
+      portal_salvar_configuracoes: {
+        Args: {
+          p_cnpj: string
+          p_email_notificacoes: string
+          p_endereco: string
+          p_nome: string
+          p_telefone: string
+          p_token: string
+        }
+        Returns: undefined
+      }
+      portal_salvar_honorarios: {
+        Args: { p_dados: Json; p_id: string; p_token: string }
+        Returns: undefined
+      }
+      portal_salvar_valor_hospitalar: {
+        Args: { p_id: string; p_obs: string; p_token: string; p_valor: number }
+        Returns: undefined
+      }
+      portal_usuario_da_sessao: {
+        Args: { p_token: string }
+        Returns: {
+          id: string
+          perfil: Database["public"]["Enums"]["user_profile"]
         }[]
       }
       verificar_login: {

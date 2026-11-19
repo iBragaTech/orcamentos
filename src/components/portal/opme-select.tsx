@@ -46,7 +46,7 @@ export function OpmeSelect({
 
   return (
     <div className="grid gap-2">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover modal open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             type="button"
@@ -64,7 +64,7 @@ export function OpmeSelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[--radix-popover-trigger-width] p-0"
+          className="w-(--radix-popover-trigger-width) p-0"
           align="start"
         >
           <Command>

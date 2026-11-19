@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TagInput } from "./tag-input";
+import { TasyConvenioSelect } from "./tasy-convenio-select";
 import { TasyInternalProcedureSelect } from "./tasy-internal-procedure-select";
 import { TasyOpmeSelect, type TasyOpmeItem } from "./tasy-opme-select";
 import { TasySurgicalInsuranceSelect } from "./tasy-surgical-insurance-select";
@@ -563,16 +564,9 @@ export function NewSurgicalAppointmentDialog({ trigger }: { trigger: ReactNode }
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={<span>Convênio <RequiredMark /></span>}>
-                <TasySurgicalInsuranceSelect
-                  value={form.cdConvenio ?? ""}
-                  label={form.convenio}
-                  onChange={(item) =>
-                    setForm((current) => ({
-                      ...current,
-                      cdConvenio: item.codigo,
-                      convenio: `${item.codigo} - ${item.nome}`,
-                    }))
-                  }
+                <TasyConvenioSelect
+                  value={form.convenio}
+                  onChange={(convenio) => setD("convenio", convenio)}
                 />
               </Field>
               <Field label={<span>Cirurgião <RequiredMark /></span>}>

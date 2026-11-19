@@ -142,7 +142,14 @@ function RequestDetail() {
             <CardContent className="space-y-5">
               <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <InfoField label="Especialidade" value={hideProcedureOrigin(request.especialidade)} />
-                <InfoField label="Médico" value={`${request.medico} · ${request.crm}`} />
+                <InfoField
+                  label="Médico"
+                  value={
+                    request.crm && request.crm !== "—"
+                      ? `${request.medico} · ${request.crm}`
+                      : request.medico
+                  }
+                />
                 <InfoField label="Tipo de consulta" value={hideProcedureOrigin(request.tipoConsulta)} />
                 <InfoField label="Data desejada" value={request.dataDesejada} />
               </dl>
