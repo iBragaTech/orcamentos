@@ -61,11 +61,15 @@ const titles: Record<string, string> = {
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, signOut } = useSession();
   const navigate = useNavigate();
-  const items = nav.filter((item) => (ACESSO[item.to] ?? []).includes(user?.perfil as Perfil));
+  const items = nav.filter((item) =>
+    user?.needsPortalApproval
+      ? ["/orcamentos", "/agendamentos-cirurgicos"].includes(item.to)
+      : (ACESSO[item.to] ?? []).includes(user?.perfil as Perfil),
+  );
   return (
     <div className="flex h-full flex-col bg-sidebar">
       <div className="px-5 py-5">
-        <Link to="/" onClick={onNavigate} aria-label="Ir para o Dashboard" className="inline-block">
+        <Link to={user?.needsPortalApproval ? "/orcamentos" : "/"} onClick={onNavigate} aria-label="Ir para o Portal" className="inline-block">
           <img
             src={logoHorizontal}
             alt="Hospital Evangélico de Belo Horizonte"
@@ -97,7 +101,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <UserAvatar name={user?.nome ?? ""} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-sidebar-foreground">{user?.nome}</p>
-            <p className="truncate text-xs text-muted-foreground">{user?.perfil}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {user?.needsPortalApproval ? "Visualização inicial" : user?.perfil}
+          </p>
           </div>
         </div>
         <Button
@@ -169,7 +175,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const title = titles[base] ?? titles[pathname] ?? "Portal";
   const isDetail = pathname.startsWith("/orcamentos/") && pathname !== "/orcamentos";
   const allowed = ACESSO[base] ?? [];
-  const autorizado = !!user && allowed.includes(user.perfil);
+  const initialReadOnly = user?.needsPortalApproval === true;
+  const initialReadOnlyRoute = ["/orcamentos", "/agendamentos-cirurgicos"].includes(base);
+  const autorizado =
+    !!user &&
+    (initialReadOnly ? initialReadOnlyRoute : allowed.includes(user.perfil));
 
   useEffect(() => {
     if (ready && !user) void navigate({ to: "/login", replace: true });
@@ -184,21 +194,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   if (user.needsTasyLink) return <FirstTasyLink nome={user.nome} />;
-  if (user.needsPortalApproval)
-    return (
-      <main className="grid min-h-screen place-items-center bg-background px-4 py-8">
-        <div className="w-full max-w-lg rounded-xl border border-border bg-card p-6 text-center shadow-card">
-          <h1 className="text-lg font-semibold">Aguardando perfil do portal</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Seu acesso de rede foi validado e associado ao Tasy. Um administrador precisa definir seu perfil no portal antes de liberar as demais funções.
-          </p>
-          <Button className="mt-5" variant="outline" onClick={() => void signOut()}>
-            Sair
-          </Button>
-        </div>
-      </main>
-    );
-
   return (
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border lg:block">
@@ -255,7 +250,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2">
-              <DropdownMenu>
+              {!initialReadOnly && <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
                     <Bell className="h-5 w-5" />
@@ -285,7 +280,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     ))
                   )}
                 </DropdownMenuContent>
-              </DropdownMenu>
+              </DropdownMenu>}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -303,12 +298,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <p className="text-xs font-normal text-muted-foreground">{user.perfil}</p>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
+                  {!initialReadOnly && <DropdownMenuItem asChild>
                     <Link to="/perfil">Meu perfil</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+                  </DropdownMenuItem>}
+                  {!initialReadOnly && <DropdownMenuItem asChild>
                     <Link to="/configuracoes">Configurações</Link>
-                  </DropdownMenuItem>
+                  </DropdownMenuItem>}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onSelect={async () => {
@@ -330,7 +325,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
           {autorizado ? (
-            children
+            <>
+              {initialReadOnly && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                  Acesso inicial: visualização de orçamentos e solicitações cirúrgicas. Após o administrador definir seu perfil, saia e entre novamente para liberar as demais funções.
+                </div>
+              )}
+              {children}
+            </>
           ) : (
             <div className="mx-auto max-w-md rounded-xl border border-border bg-card p-8 text-center">
               <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive">
@@ -338,10 +340,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
               <h2 className="mt-4 text-lg font-semibold text-foreground">Acesso restrito</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                O perfil <strong>{user.perfil}</strong> não tem permissão para esta área do portal.
+                {initialReadOnly ? (
+                  "No primeiro acesso, estão disponíveis apenas orçamentos e solicitações cirúrgicas."
+                ) : (
+                  <>O perfil <strong>{user.perfil}</strong> não tem permissão para esta área do portal.</>
+                )}
               </p>
-              <Button className="mt-5" onClick={() => void navigate({ to: "/" })}>
-                Voltar ao Dashboard
+              <Button className="mt-5" onClick={() => void navigate({ to: initialReadOnly ? "/orcamentos" : "/" })}>
+                {initialReadOnly ? "Ver orçamentos" : "Voltar ao Dashboard"}
               </Button>
             </div>
           )}

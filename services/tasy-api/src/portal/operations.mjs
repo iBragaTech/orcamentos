@@ -166,15 +166,16 @@ export function createPortalOperations(
     ...budgetTemplateOperations(db),
     ...custosOperations({ db, getAccessible, event, calculateQuote, auditIdentity }),
     listSurgicalAppointments: async (_input, user) => {
-      allowed(user, ["Administrador", "Médico"]);
+      const firstAccessReadOnly = user.auth_source === "ad" && user.portal_access_ready === false;
+      if (!firstAccessReadOnly) allowed(user, ["Administrador", "Médico"]);
       const result = await db.query(
         `SELECT id,patient_name AS "patientName",patient_cpf AS "patientCpf",
         doctor_user_id AS "doctorUserId",doctor_name AS "doctorName",
         desired_date::text AS "desiredDate",status,created_at AS "createdAt",dados
         FROM portal.surgical_appointments
-        WHERE ($1 = 'Administrador' OR doctor_user_id = $2)
+        WHERE ($3::boolean OR $1 = 'Administrador' OR doctor_user_id = $2)
         ORDER BY desired_date,created_at DESC`,
-        [user.perfil, user.id],
+        [user.perfil, user.id, firstAccessReadOnly],
       );
       return result.rows;
     },

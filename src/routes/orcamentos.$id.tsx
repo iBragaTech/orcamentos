@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/data/mock";
 import { useRequest, useTimeline, useSettings } from "@/lib/data/hooks";
+import { useSession } from "@/lib/auth/session";
 import { openQuoteDocument, downloadQuoteFile } from "@/lib/quote-document";
 import { canPrintQuote, quoteStatusLabel } from "@/lib/tasy-workflow";
 import {
@@ -51,9 +52,11 @@ export const Route = createFileRoute("/orcamentos/$id")({
 
 function RequestDetail() {
   const { id } = Route.useParams();
+  const { user } = useSession();
+  const initialReadOnly = user?.needsPortalApproval === true;
   const { data: request, isLoading } = useRequest(id);
   const { data: timelineEvents = [] } = useTimeline(id);
-  const { data: settings } = useSettings();
+  const { data: settings } = useSettings(!initialReadOnly);
 
   if (isLoading) {
     return (
@@ -90,7 +93,13 @@ function RequestDetail() {
       <PageHeader
         title={request.numero ?? "Orçamento"}
         description={`${request.paciente.nome} · ${hideProcedureOrigin(request.especialidade)}`}
-        actions={
+        actions={initialReadOnly ? (
+          <StatusBadge
+            status={request.status}
+            label={quoteStatusLabel(request)}
+            className="px-3 py-1.5 text-sm"
+          />
+        ) : (
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge
               status={request.status}
@@ -123,14 +132,14 @@ function RequestDetail() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        }
+        )}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-6">
           <PatientInfoCard
             patient={request.paciente}
-            actions={<RequestActions request={request} phoneOnly />}
+            actions={initialReadOnly ? undefined : <RequestActions request={request} phoneOnly />}
           />
 
           <Card className="shadow-card">
@@ -213,6 +222,7 @@ function RequestDetail() {
             <BudgetPricing
               key={`${request.id}:${request.precificacao?.revisao ?? 0}`}
               request={request}
+              readOnly={initialReadOnly}
             />
           ) : (
             <div className="grid gap-6 xl:grid-cols-2">
@@ -357,9 +367,9 @@ function RequestDetail() {
         </div>
 
         <div className="space-y-6">
-          <TasyBudgetExport id={id} managed={request.tasyGerenciado} />
-          <BudgetEmail request={request} />
-          <BudgetWhatsApp key={request.id} request={request} />
+          {!initialReadOnly && <TasyBudgetExport id={id} managed={request.tasyGerenciado} />}
+          {!initialReadOnly && <BudgetEmail request={request} />}
+          {!initialReadOnly && <BudgetWhatsApp key={request.id} request={request} />}
           <FinancialSummary
             hospitalar={request.valorHospitalar}
             tasyTotal={request.tasyGerenciado ? (request.tasyRetorno?.total ?? null) : undefined}

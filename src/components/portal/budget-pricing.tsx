@@ -23,7 +23,7 @@ function shortItemLabel(item: {
   return `${shortened} - ${item.codigo}`;
 }
 
-export function BudgetPricing({ request }: { request: ConsultationRequest }) {
+export function BudgetPricing({ request, readOnly = false }: { request: ConsultationRequest; readOnly?: boolean }) {
   const { user } = useSession();
   const canReview =
     ["Custos", "Administrador"].includes(user?.perfil ?? "") && request.status !== "concluido";
@@ -59,6 +59,40 @@ export function BudgetPricing({ request }: { request: ConsultationRequest }) {
     }
   }
   if (request.tasyGerenciado) return <TasyReturnPricing request={request} />;
+  if (readOnly)
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Valores e itens do orçamento</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {pricing ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Referência consultada em {new Date(pricing.referencia.calculadoEm).toLocaleString("pt-BR")}.
+              </p>
+              <p className="text-sm">{pricing.referencia.contexto}</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr><th className="text-left">Item</th><th>Qtd.</th><th className="text-right">Valor</th></tr></thead>
+                  <tbody>{pricing.referencia.itens.map((item) => (
+                    <tr key={`${item.tipo}:${item.codigo}:${item.origem}`} className="border-t">
+                      <td className="py-2">{item.referencia.nome || item.codigo}</td>
+                      <td className="text-center">{item.quantidade}</td>
+                      <td className="text-right">{item.pendente ? "Pendente" : formatCurrency(item.referencia.valorProcedimento ?? item.referencia.valorMaterial ?? null)}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <p className="text-sm">Honorários médicos: {formatCurrency(request.honorariosMedicos)}</p>
+              <p className="text-sm">Valor hospitalar: {formatCurrency(request.valorHospitalar)}</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Ainda não há referência de preços registrada neste orçamento.</p>
+          )}
+        </CardContent>
+      </Card>
+    );
   if (!canReview && request.status !== "concluido")
     return (
       <Card>

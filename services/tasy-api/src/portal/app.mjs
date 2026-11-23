@@ -160,6 +160,12 @@ export async function createPortalApp({
     if (!user.portal_access_ready)
       throw new ApiError(403, "PORTAL_PROFILE_PENDING", "Aguarde o administrador definir seu perfil de acesso ao portal.");
   };
+  const firstAccessReadOnlyOperations = new Set([
+    "listRequests",
+    "getRequest",
+    "getTimeline",
+    "listSurgicalAppointments",
+  ]);
   if (emails) {
     let timer;
     const drain = () => emails.drain().catch(() => app.log.warn("Fila de e-mails pendente."));
@@ -191,7 +197,12 @@ export async function createPortalApp({
     const op = request.params.operation;
     if (!["getMyTasyOptions", "saveMyTasyLink"].includes(op)) {
       requireTasyLink(request.portalUser);
-      requirePortalProfile(request.portalUser);
+      if (!request.portalUser.portal_access_ready) {
+        if (!firstAccessReadOnlyOperations.has(op))
+          throw new ApiError(403, "READ_ONLY_FIRST_ACCESS", "No primeiro acesso, você pode apenas visualizar orçamentos e solicitações cirúrgicas.");
+      } else {
+        requirePortalProfile(request.portalUser);
+      }
     }
     if (op === "getPatientQuotePdf") {
       reply.header("Cache-Control", "no-store");

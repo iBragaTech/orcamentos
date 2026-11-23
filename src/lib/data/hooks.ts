@@ -19,7 +19,7 @@ export function useRequests() {
     queryKey: ["requests"],
     refetchInterval: 30000,
     queryFn: () => repository.listRequests(),
-    enabled: !!user && !user.needsTasyLink && !user.needsPortalApproval,
+    enabled: !!user && !user.needsTasyLink,
     select: (rows) => (isMedico ? rows.filter((r) => r.medico === nome) : rows),
   });
 }
@@ -71,13 +71,14 @@ export function usePortalUsers() {
   return useQuery({ queryKey: ["portal_users"], queryFn: () => repository.listUsers() });
 }
 
-export function useSettings() {
-  return useQuery({ queryKey: ["settings"], queryFn: () => repository.getSettings() });
+export function useSettings(enabled = true) {
+  return useQuery({ queryKey: ["settings"], queryFn: () => repository.getSettings(), enabled });
 }
 
 export function useSurgicalAppointments() {
   const { user } = useSession();
-  const allowed = user?.perfil === "Administrador" || user?.perfil === "Médico";
+  const allowed =
+    user?.needsPortalApproval || user?.perfil === "Administrador" || user?.perfil === "Médico";
   return useQuery({
     queryKey: ["surgical_appointments"],
     queryFn: () => repository.listSurgicalAppointments(),

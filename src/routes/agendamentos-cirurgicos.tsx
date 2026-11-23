@@ -110,6 +110,8 @@ function SurgicalAppointmentsPage() {
         description={
           isDoctor
             ? "Solicite uma data e acompanhe suas solicitações cirúrgicas."
+          : user?.needsPortalApproval
+            ? "Visualização das solicitações cirúrgicas no primeiro acesso."
             : "Acompanhe as solicitações de agendamento enviadas pelos médicos."
         }
         actions={

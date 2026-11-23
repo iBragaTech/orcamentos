@@ -86,11 +86,13 @@ function OrcamentosPage() {
       <PageHeader
         title={isMedico ? "Meus orçamentos" : "Orçamentos"}
         description={
-          isMedico
+          user?.needsPortalApproval
+            ? "Visualização de orçamentos no primeiro acesso."
+            : isMedico
             ? "Crie orçamentos e acompanhe a cotação, a aprovação e seu histórico."
             : "Todos os orçamentos registrados no portal, do pedido inicial ao valor consolidado."
         }
-        actions={
+        actions={user?.needsPortalApproval ? undefined : (
           <NewRequestDialog
             origem={isMedico ? "medico" : "comercial"}
             trigger={
@@ -99,7 +101,7 @@ function OrcamentosPage() {
               </Button>
             }
           />
-        }
+        )}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -143,7 +145,7 @@ function OrcamentosPage() {
           description="Ajuste os filtros ou o termo de busca para visualizar outros resultados."
         />
       ) : (
-        <RequestTable requests={filtered} manage={!isMedico} />
+      <RequestTable requests={filtered} manage={!isMedico && !user?.needsPortalApproval} />
       )}
     </AppShell>
   );
