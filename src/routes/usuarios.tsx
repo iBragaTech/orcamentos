@@ -80,6 +80,8 @@ function NewUserDialog() {
     "",
   );
   const [senha, setSenha] = useState("");
+  const [adLogin, setAdLogin] = useState("");
+  const [authSource, setAuthSource] = useState<"portal" | "ad">("portal");
   const [tasyLink, setTasyLink] = useState(emptyTasyLink);
   const create = useCreateUser();
 
@@ -88,13 +90,17 @@ function NewUserDialog() {
       toast.error("Preencha nome, e-mail e perfil.");
       return;
     }
-    if (senha.length < (localAuthEnabled ? 12 : 6)) {
+    if (authSource === "ad" && !adLogin.trim()) {
+      toast.error("Informe o usuário de rede (AD).");
+      return;
+    }
+    if (authSource === "portal" && senha.length < (localAuthEnabled ? 12 : 6)) {
       toast.error(
         `A senha inicial precisa ter pelo menos ${localAuthEnabled ? 12 : 6} caracteres.`,
       );
       return;
     }
-    if (localAuthEnabled && senha.length > 128) {
+    if (authSource === "portal" && localAuthEnabled && senha.length > 128) {
       toast.error("A senha inicial deve ter no máximo 128 caracteres.");
       return;
     }
@@ -114,7 +120,9 @@ function NewUserDialog() {
         nome: nome.trim(),
         email: email.trim(),
         perfil,
-        senha,
+        authSource,
+        ...(authSource === "ad" ? { adLogin: adLogin.trim() } : {}),
+        ...(authSource === "portal" ? { senha } : {}),
         ...(localAuthEnabled ? tasyLink : {}),
       });
       toast.success("Usuário cadastrado.");
@@ -122,6 +130,8 @@ function NewUserDialog() {
       setEmail("");
       setPerfil("");
       setSenha("");
+      setAdLogin("");
+      setAuthSource("portal");
       setTasyLink(emptyTasyLink);
       setOpen(false);
     } catch (e) {
@@ -177,19 +187,53 @@ function NewUserDialog() {
               </SelectContent>
             </Select>
           </div>
-          {localAuthEnabled && <TasyUserFields value={tasyLink} onChange={setTasyLink} />}
           <div className="grid gap-2">
-            <Label htmlFor="senha-usuario">Senha inicial</Label>
-            <Input
-              id="senha-usuario"
-              type="password"
-              minLength={localAuthEnabled ? 12 : 6}
-              maxLength={localAuthEnabled ? 128 : undefined}
-              placeholder={localAuthEnabled ? "Mínimo 12 caracteres" : "Mínimo 6 caracteres"}
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-            />
+            <Label>Autenticação</Label>
+            <Select value={authSource} onValueChange={(v) => setAuthSource(v as "portal" | "ad")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="portal">Usuário e senha do portal</SelectItem>
+                {localAuthEnabled && (
+                  <SelectItem value="ad">Usuário e senha da rede (AD)</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
+          {localAuthEnabled && <TasyUserFields value={tasyLink} onChange={setTasyLink} />}
+          {authSource === "ad" && (
+            <div className="grid gap-2">
+              <Label htmlFor="usuario-ad">Usuário de rede (AD)</Label>
+              <Input
+                id="usuario-ad"
+                autoComplete="username"
+                placeholder="Ex.: arafaela ou usuario@dominio"
+                value={adLogin}
+                onChange={(e) => setAdLogin(e.target.value)}
+              />
+            </div>
+          )}
+          {authSource === "portal" && (
+            <div className="grid gap-2">
+              <Label htmlFor="senha-usuario">Senha inicial</Label>
+              <Input
+                id="senha-usuario"
+                type="password"
+                minLength={localAuthEnabled ? 12 : 6}
+                maxLength={localAuthEnabled ? 128 : undefined}
+                placeholder={localAuthEnabled ? "Mínimo 12 caracteres" : "Mínimo 6 caracteres"}
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+              />
+            </div>
+          )}
+          {authSource === "ad" && (
+            <p className="text-sm text-muted-foreground">
+              A pessoa entra com o usuário de rede e a senha do AD. O acesso depende da configuração
+              LDAPS do servidor.
+            </p>
+          )}
         </div>
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           <Button variant="outline" className="w-full sm:w-auto" onClick={() => setOpen(false)}>
@@ -219,18 +263,61 @@ function EditUserDialog({ user }: { user: PortalUser }) {
       toast.error(e instanceof Error ? e.message : "Não foi possível atualizar o perfil.");
     }
   }
-  return <Dialog open={open} onOpenChange={setOpen}>
-    <Button variant="outline" size="sm" onClick={() => { setNome(user.nome); setEmail(user.email); setPerfil(user.perfil); setOpen(true); }}><Pencil className="h-4 w-4" /><span className="sr-only">Editar {user.nome}</span></Button>
-    <DialogContent>
-      <DialogHeader><DialogTitle>Editar usuário</DialogTitle><DialogDescription>Altere os dados e o perfil de acesso.</DialogDescription></DialogHeader>
-      <div className="grid gap-4">
-        <div className="grid gap-2"><Label>Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
-        <div className="grid gap-2"><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-        <div className="grid gap-2"><Label>Perfil</Label><Select value={perfil} onValueChange={(v) => setPerfil(v as PortalUser["perfil"])}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Administrador">Administrador</SelectItem><SelectItem value="Comercial">Comercial</SelectItem><SelectItem value="Custos">Custos</SelectItem><SelectItem value="Médico">Médico</SelectItem></SelectContent></Select></div>
-      </div>
-      <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={save} disabled={update.isPending || !nome.trim() || !email.trim()}>{update.isPending ? "Salvando..." : "Salvar alterações"}</Button></DialogFooter>
-    </DialogContent>
-  </Dialog>;
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setNome(user.nome);
+          setEmail(user.email);
+          setPerfil(user.perfil);
+          setOpen(true);
+        }}
+      >
+        <Pencil className="h-4 w-4" />
+        <span className="sr-only">Editar {user.nome}</span>
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar usuário</DialogTitle>
+          <DialogDescription>Altere os dados e o perfil de acesso.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label>Nome</Label>
+            <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+          </div>
+          <div className="grid gap-2">
+            <Label>E-mail</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="grid gap-2">
+            <Label>Perfil</Label>
+            <Select value={perfil} onValueChange={(v) => setPerfil(v as PortalUser["perfil"])}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Administrador">Administrador</SelectItem>
+                <SelectItem value="Comercial">Comercial</SelectItem>
+                <SelectItem value="Custos">Custos</SelectItem>
+                <SelectItem value="Médico">Médico</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={save} disabled={update.isPending || !nome.trim() || !email.trim()}>
+            {update.isPending ? "Salvando..." : "Salvar alterações"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function UsuariosPage() {
@@ -262,7 +349,9 @@ function UsuariosPage() {
                 <UserTasyLinkDialog user={u} />
               </div>
             )}
-            <div className="mt-3"><EditUserDialog user={u} /></div>
+            <div className="mt-3">
+              <EditUserDialog user={u} />
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
               <span
                 className={cn(
@@ -325,7 +414,10 @@ function UsuariosPage() {
                     {u.ativo ? "Ativo" : "Inativo"}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
-                    <div className="flex items-center justify-end gap-3">{u.ultimoAcesso}<EditUserDialog user={u} /></div>
+                    <div className="flex items-center justify-end gap-3">
+                      {u.ultimoAcesso}
+                      <EditUserDialog user={u} />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

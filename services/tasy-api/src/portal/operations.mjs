@@ -153,6 +153,7 @@ export function createPortalOperations(
     enqueueExport,
     enqueueNewEmail,
     tasyManaged = false,
+    directoryEnabled = false,
   } = {},
 ) {
   const handlers = {
@@ -794,7 +795,7 @@ export function createPortalOperations(
     listUsers: async (_input, user) => {
       allowed(user, ["Administrador"]);
       const result = await db.query(
-        `SELECT u.id,u.nome,u.email,u.perfil,u.ativo,u.ultimo_acesso,l.nm_usuario AS "nmUsuario",
+        `SELECT u.id,u.nome,u.email,u.perfil,u.auth_source AS "authSource",u.ativo,u.ultimo_acesso,l.nm_usuario AS "nmUsuario",
         (l.principal->>'tasyProfile')::int AS "cdPerfil",(l.principal->>'tasyEstablishment')::int AS "cdEstabelecimento",
         (l.principal->>'allPessoaFisica')::boolean AS "consultarTodosPacientes",(l.principal->>'canCreatePessoaFisica')::boolean AS "cadastrarPacientes"
         FROM portal.users u LEFT JOIN portal.tasy_user_links l ON l.user_id=u.id ORDER BY u.nome`,
@@ -807,6 +808,12 @@ export function createPortalOperations(
     createUser: async (input, user) => {
       allowed(user, ["Administrador"]);
       const value = parse(userSchema.extend(linkFields).strict(), input);
+      if (value.authSource === "ad" && !directoryEnabled)
+        throw new ApiError(
+          503,
+          "DIRECTORY_DISABLED",
+          "Configure a autenticação LDAPS antes de cadastrar usuários da rede.",
+        );
       if (!validateTasyLink)
         throw new ApiError(
           503,
@@ -836,8 +843,26 @@ export function createPortalOperations(
     },
     updateUser: async (input, user) => {
       allowed(user, ["Administrador"]);
-      const value = parse(z.object({ id: uuid, nome: z.string().trim().min(1).max(120), email: z.string().trim().email().max(254).transform((s) => s.toLowerCase()), perfil: z.enum(["Administrador", "Comercial", "Médico", "Custos"]) }).strict(), input);
-      const result = await db.query("UPDATE portal.users SET nome=$2,email=$3,perfil=$4 WHERE id=$1 RETURNING id", [value.id, value.nome, value.email, value.perfil]);
+      const value = parse(
+        z
+          .object({
+            id: uuid,
+            nome: z.string().trim().min(1).max(120),
+            email: z
+              .string()
+              .trim()
+              .email()
+              .max(254)
+              .transform((s) => s.toLowerCase()),
+            perfil: z.enum(["Administrador", "Comercial", "Médico", "Custos"]),
+          })
+          .strict(),
+        input,
+      );
+      const result = await db.query(
+        "UPDATE portal.users SET nome=$2,email=$3,perfil=$4 WHERE id=$1 RETURNING id",
+        [value.id, value.nome, value.email, value.perfil],
+      );
       if (!result.rows.length) throw new ApiError(404, "NOT_FOUND", "Usuario nao encontrado.");
       return null;
     },

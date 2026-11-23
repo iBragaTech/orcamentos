@@ -41,6 +41,19 @@ Só execute uma instância da API por pasta PGlite. Um arquivo `pgdata.lock` imp
 - `POST /v1/auth/login`: `{ "email": "...", "senha": "..." }`.
 - `GET /v1/auth/me`: usuário autenticado.
 - `POST /v1/auth/logout`: revoga a sessão.
+
+### Acesso pelo Active Directory
+
+O login local do portal continua disponível. Para usuários do AD, configure no servidor
+`AD_SERVER=<controlador>` e `AD_DOMAIN=<sufixo-UPN>`. A API conecta por LDAPS na porta 636;
+use o nome DNS do controlador para validar o certificado. Se a CA
+não for confiável pelo sistema, `PORTAL_AD_CA_FILE=<caminho-PEM>`. A conexão exige LDAPS
+com validação de certificado. Cadastre antes o usuário em **Usuários**, selecione
+**Usuário e senha da rede (AD)** e informe o identificador de rede (sAMAccountName ou UPN).
+O perfil continua sendo atribuído pelo administrador no portal. A conta local usa e-mail e
+senha próprios; o backend guarda o hash local e não armazena senha do AD. A migração de banco
+é aplicada automaticamente ao iniciar a API.
+
 - `POST /v1/portal/:operation`: operações do portal, com `Authorization: Bearer <token>`.
 
 Login retorna `{ "data": { "token": "...", "user": {} } }`. As sessões duram oito horas; o banco guarda somente o hash do token. Senhas usam scrypt. Desativação do usuário é verificada em cada requisição. As permissões são aplicadas pela API.

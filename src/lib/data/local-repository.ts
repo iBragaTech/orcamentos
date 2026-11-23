@@ -31,7 +31,9 @@ export const localRepository = {
     nome: string;
     email: string;
     perfil: PortalUser["perfil"];
-    senha: string;
+    authSource?: "portal" | "ad";
+    adLogin?: string;
+    senha?: string;
     nmUsuario?: string;
     cdPerfil?: number;
     cdEstabelecimento?: number;
@@ -47,8 +49,7 @@ export const localRepository = {
     ),
   getSettings: () => portalCall<InstitutionSettings>("getSettings"),
   saveSettings: (input: InstitutionSettings) => portalCall<void>("saveSettings", input),
-  listSurgicalAppointments: () =>
-    portalCall<SurgicalAppointment[]>("listSurgicalAppointments"),
+  listSurgicalAppointments: () => portalCall<SurgicalAppointment[]>("listSurgicalAppointments"),
   createSurgicalAppointment: (input: NewSurgicalAppointmentInput) =>
     portalCall<string>("createSurgicalAppointment", input),
   signIn: localAuth.signIn,

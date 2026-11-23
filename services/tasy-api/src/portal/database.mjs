@@ -168,5 +168,13 @@ export async function migrate(db) {
       );
       await tx.query("INSERT INTO portal.schema_migrations(version) VALUES (10)");
     }
+    if (
+      !(await tx.query("SELECT version FROM portal.schema_migrations WHERE version=11")).rows.length
+    ) {
+      await tx.exec(`ALTER TABLE portal.users ADD COLUMN auth_source text NOT NULL DEFAULT 'portal' CHECK (auth_source IN ('portal','ad'));
+        ALTER TABLE portal.users ADD COLUMN ad_login text UNIQUE;
+        ALTER TABLE portal.users ALTER COLUMN password_hash DROP NOT NULL;`);
+      await tx.query("INSERT INTO portal.schema_migrations(version) VALUES (11)");
+    }
   });
 }

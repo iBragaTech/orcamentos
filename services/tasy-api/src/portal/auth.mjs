@@ -15,7 +15,9 @@ export const userSchema = z
       .max(254)
       .transform((s) => s.toLowerCase()),
     perfil: z.enum(["Administrador", "Comercial", "Médico", "Custos"]),
-    senha: passwordSchema,
+    authSource: z.enum(["portal", "ad"]).default("portal"),
+    adLogin: z.string().trim().min(1).max(254).optional(),
+    senha: passwordSchema.optional(),
   })
   .strict();
 export function parse(schema, input) {
@@ -57,27 +59,54 @@ export function publicUser(user) {
 }
 export async function createUser(db, input) {
   const user = parse(userSchema, input);
-  const hashed = await hashPassword(user.senha);
+  if (user.authSource === "portal" && !user.senha)
+    throw new ApiError(400, "INVALID_INPUT", "Informe a senha inicial da conta do portal.");
+  if (user.authSource === "ad" && !user.adLogin)
+    throw new ApiError(400, "INVALID_INPUT", "Informe o usuário de rede (AD).");
+  const hashed = user.senha ? await hashPassword(user.senha) : null;
   const result = await db.query(
-    `INSERT INTO portal.users(nome,email,perfil,password_hash)
-    VALUES ($1,$2,$3,$4) RETURNING id,nome,email,perfil`,
-    [user.nome, user.email, user.perfil, hashed],
+    `INSERT INTO portal.users(nome,email,perfil,password_hash,auth_source,ad_login)
+    VALUES ($1,$2,$3,$4,$5,$6) RETURNING id,nome,email,perfil`,
+    [
+      user.nome,
+      user.email,
+      user.perfil,
+      hashed,
+      user.authSource,
+      user.authSource === "ad" ? user.adLogin.toLowerCase() : null,
+    ],
   );
   return result.rows[0];
 }
-export async function createLocalAuth(db) {
+export async function createLocalAuth(db, { authenticateDirectory } = {}) {
   const dummyHash = await hashPassword(randomBytes(24).toString("hex"));
   const loginSchema = z
-    .object({ email: z.string().trim().email().max(254), senha: z.string().min(1).max(128) })
+    .object({ email: z.string().trim().min(1).max(254), senha: z.string().min(1).max(128) })
     .strict();
   return {
     login: async (body) => {
-      const { email, senha } = parse(loginSchema, body);
-      const { rows } = await db.query("SELECT * FROM portal.users WHERE email = $1", [
-        email.toLowerCase(),
-      ]);
-      const user = rows[0];
-      const valid = await verify(senha, user?.password_hash || dummyHash);
+      const { email: login, senha } = parse(loginSchema, body);
+      const normalizedLogin = login.toLowerCase();
+      const { rows } = await db.query(
+        "SELECT * FROM portal.users WHERE (email = $1 OR ad_login = $1) AND ativo=true",
+        [normalizedLogin],
+      );
+      const user = rows.length === 1 ? rows[0] : null;
+      let valid = false;
+      if (user?.auth_source === "ad") {
+        if (!authenticateDirectory)
+          throw new ApiError(
+            503,
+            "DIRECTORY_DISABLED",
+            "A autenticação pela rede ainda não está configurada.",
+          );
+        valid = await authenticateDirectory(user.ad_login, senha);
+      } else {
+        valid =
+          user &&
+          user.email === normalizedLogin &&
+          (await verify(senha, user.password_hash || dummyHash));
+      }
       if (!user?.ativo || !valid)
         throw new ApiError(401, "UNAUTHORIZED", "E-mail ou senha inválidos.");
       const token = randomBytes(32).toString("base64url");

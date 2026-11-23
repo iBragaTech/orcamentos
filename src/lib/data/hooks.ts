@@ -109,7 +109,9 @@ export function useCreateUser() {
       nome: string;
       email: string;
       perfil: "Administrador" | "Comercial" | "Médico" | "Custos";
-      senha: string;
+      authSource?: "portal" | "ad";
+      adLogin?: string;
+      senha?: string;
       nmUsuario?: string;
       cdPerfil?: number;
       cdEstabelecimento?: number;
@@ -123,7 +125,12 @@ export function useCreateUser() {
 export function useUpdateUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { id: string; nome: string; email: string; perfil: "Administrador" | "Comercial" | "Médico" | "Custos" }) => repository.updateUser(input),
+    mutationFn: (input: {
+      id: string;
+      nome: string;
+      email: string;
+      perfil: "Administrador" | "Comercial" | "Médico" | "Custos";
+    }) => repository.updateUser(input),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["portal_users"] }),
   });
 }

@@ -22,10 +22,11 @@ export async function createPortalApp({
   approvalRule,
   emailSender,
   newBudgetRecipient,
+  authenticateDirectory,
 }) {
   await importLegacyLinks(db, principals);
   const resolvePrincipal = createLinkResolver(db, validateTasyLink);
-  const auth = await createLocalAuth(db);
+  const auth = await createLocalAuth(db, { authenticateDirectory });
   const app = await createApp({
     portalOrigin,
     logger,
@@ -82,6 +83,7 @@ export async function createPortalApp({
       : undefined,
     auditIdentity: async (user, tx) => (await resolvePrincipal(user, tx)).tasyUsername,
     validateTasyLink,
+    directoryEnabled: Boolean(authenticateDirectory),
     tasyManaged: !!returnSync,
     syncPatientEmail: tasyExecute
       ? async (input, user, tx) =>

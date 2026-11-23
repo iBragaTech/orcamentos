@@ -288,10 +288,22 @@ const supabaseRepository = {
     }));
   },
 
-  async updateUser(input: { id: string; nome: string; email: string; perfil: PortalUser["perfil"] }): Promise<void> {
-    const perfilDb: Record<string, string> = { Administrador: "administrador", Comercial: "comercial", Médico: "medico" };
+  async updateUser(input: {
+    id: string;
+    nome: string;
+    email: string;
+    perfil: PortalUser["perfil"];
+  }): Promise<void> {
+    const perfilDb: Record<string, string> = {
+      Administrador: "administrador",
+      Comercial: "comercial",
+      Médico: "medico",
+    };
     const { error } = await (supabase as any).rpc("portal_atualizar_usuario", {
-      p_id: input.id, p_nome: input.nome, p_email: input.email, p_perfil: perfilDb[input.perfil],
+      p_id: input.id,
+      p_nome: input.nome,
+      p_email: input.email,
+      p_perfil: perfilDb[input.perfil],
     });
     if (error) throw new Error(error.message);
   },
@@ -360,13 +372,17 @@ const supabaseRepository = {
     nome: string;
     email: string;
     perfil: PortalUser["perfil"];
-    senha: string;
+    authSource?: "portal" | "ad";
+    adLogin?: string;
+    senha?: string;
     nmUsuario?: string;
     cdPerfil?: number;
     cdEstabelecimento?: number;
     consultarTodosPacientes?: boolean;
     cadastrarPacientes?: boolean;
   }): Promise<void> {
+    if (input.authSource === "ad")
+      throw new Error("Contas do AD estão disponíveis no backend independente do portal.");
     if (supabaseAuthEnabled) {
       throw new Error(
         "Solicite ao administrador de identidade o cadastro de acesso deste usuário.",
@@ -387,7 +403,8 @@ const supabaseRepository = {
   },
 
   async getTimeline(requestId: string): Promise<TimelineEvent[]> {
-    const data = (await portalRpc<any[] | null>("portal_linha_do_tempo", { p_id: requestId })) ?? [];
+    const data =
+      (await portalRpc<any[] | null>("portal_linha_do_tempo", { p_id: requestId })) ?? [];
     const registrados = (data as any[]).map((e) => ({
       titulo: e.titulo,
       descricao: e.descricao ?? "",

@@ -12,6 +12,7 @@ import { createBudgetExporter } from "../orcamento-export.mjs";
 import { readEncryptedSecret } from "../secrets.mjs";
 import { createBudgetReader } from "../orcamento-retorno.mjs";
 import { createHospitalMailer } from "../mail-transport.mjs";
+import { createDirectoryAuthenticator } from "./directory-auth.mjs";
 let db, oracle, app;
 try {
   const origin = process.env.PORTAL_ORIGIN || "http://localhost:5173";
@@ -84,6 +85,7 @@ try {
       : undefined;
   app = await createPortalApp({
     db,
+    authenticateDirectory: await createDirectoryAuthenticator(process.env),
     portalOrigin: origin,
     principals,
     tasyExecute,

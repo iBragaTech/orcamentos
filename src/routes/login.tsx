@@ -97,19 +97,20 @@ function LoginPage() {
               className="mb-4 h-10 w-auto object-contain object-left lg:hidden"
             />
             <CardTitle>Entrar no portal</CardTitle>
-            <CardDescription>Use o e-mail e a senha cadastrados para você.</CardDescription>
+            <CardDescription>
+              Use seu e-mail e senha do portal, ou usuário e senha da rede.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
+                <Label htmlFor="email">E-mail ou usuário de rede</Label>
                 <Input
                   id="email"
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nome@hospital.com.br"
+                  placeholder="E-mail ou usuário AD"
                   autoComplete="username"
                   autoFocus
                 />
@@ -128,7 +129,11 @@ function LoginPage() {
               </div>
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogIn className="h-4 w-4" />
+                )}
                 Entrar
               </Button>
 
