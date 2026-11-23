@@ -288,6 +288,14 @@ const supabaseRepository = {
     }));
   },
 
+  async updateUser(input: { id: string; nome: string; email: string; perfil: PortalUser["perfil"] }): Promise<void> {
+    const perfilDb: Record<string, string> = { Administrador: "administrador", Comercial: "comercial", Médico: "medico" };
+    const { error } = await (supabase as any).rpc("portal_atualizar_usuario", {
+      p_id: input.id, p_nome: input.nome, p_email: input.email, p_perfil: perfilDb[input.perfil],
+    });
+    if (error) throw new Error(error.message);
+  },
+
   // Valida e-mail + senha no banco (função verificar_login, hash bcrypt/pgcrypto).
   async signIn(email: string, senha: string) {
     if (supabaseAuthEnabled) {

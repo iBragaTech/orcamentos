@@ -834,6 +834,13 @@ export function createPortalOperations(
       });
       return null;
     },
+    updateUser: async (input, user) => {
+      allowed(user, ["Administrador"]);
+      const value = parse(z.object({ id: uuid, nome: z.string().trim().min(1).max(120), email: z.string().trim().email().max(254).transform((s) => s.toLowerCase()), perfil: z.enum(["Administrador", "Comercial", "Médico", "Custos"]) }).strict(), input);
+      const result = await db.query("UPDATE portal.users SET nome=$2,email=$3,perfil=$4 WHERE id=$1 RETURNING id", [value.id, value.nome, value.email, value.perfil]);
+      if (!result.rows.length) throw new ApiError(404, "NOT_FOUND", "Usuario nao encontrado.");
+      return null;
+    },
     saveUserTasyLink: async (input, user) => {
       allowed(user, ["Administrador"]);
       const value = parse(z.object({ id: uuid, ...linkFields }).strict(), input);
