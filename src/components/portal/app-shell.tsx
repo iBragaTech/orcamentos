@@ -33,6 +33,7 @@ import {
 import { UserAvatar } from "./user-avatar";
 import { ACESSO, useSession, type Perfil } from "@/lib/auth/session";
 import { useRequests } from "@/lib/data/hooks";
+import { FirstTasyLink } from "@/components/portal/first-tasy-link";
 import type { ConsultationRequest } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { ShieldAlert } from "lucide-react";
@@ -181,6 +182,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
     );
   }
+
+  if (user.needsTasyLink) return <FirstTasyLink nome={user.nome} />;
 
   return (
     <div className="min-h-screen bg-background">

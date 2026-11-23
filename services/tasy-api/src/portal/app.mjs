@@ -23,6 +23,7 @@ export async function createPortalApp({
   emailSender,
   newBudgetRecipient,
   authenticateDirectory,
+  getTasyUserOptions,
 }) {
   await importLegacyLinks(db, principals);
   const resolvePrincipal = createLinkResolver(db, validateTasyLink);
@@ -84,6 +85,7 @@ export async function createPortalApp({
     auditIdentity: async (user, tx) => (await resolvePrincipal(user, tx)).tasyUsername,
     validateTasyLink,
     directoryEnabled: Boolean(authenticateDirectory),
+    getTasyUserOptions,
     tasyManaged: !!returnSync,
     syncPatientEmail: tasyExecute
       ? async (input, user, tx) =>
@@ -148,6 +150,10 @@ export async function createPortalApp({
   const signed = async (request) => {
     request.portalUser = await auth.authenticate(request.headers.authorization);
   };
+  const requireTasyLink = (user) => {
+    if (!user.tasy_linked)
+      throw new ApiError(403, "TASY_LINK_REQUIRED", "Selecione seu perfil e estabelecimento Tasy para continuar.");
+  };
   if (emails) {
     let timer;
     const drain = () => emails.drain().catch(() => app.log.warn("Fila de e-mails pendente."));
@@ -177,6 +183,7 @@ export async function createPortalApp({
   });
   app.post("/v1/portal/:operation", { onRequest: signed }, async (request, reply) => {
     const op = request.params.operation;
+    if (!["getMyTasyOptions", "saveMyTasyLink"].includes(op)) requireTasyLink(request.portalUser);
     if (op === "getPatientQuotePdf") {
       reply.header("Cache-Control", "no-store");
       const data = await patientPdf(request.body, request.portalUser);
@@ -222,12 +229,14 @@ export async function createPortalApp({
     return { data, requestId: request.id };
   });
   app.get("/v1/requests/:id/tasy", { onRequest: signed }, async (request) => {
+    requireTasyLink(request.portalUser);
     if (!/^[0-9a-f-]{36}$/i.test(request.params.id))
       throw new ApiError(400, "INVALID_INPUT", "Identificador inválido.");
     return { data: await exports.status(request.params.id, request.portalUser) };
   });
-  app.post("/v1/requests/:id/tasy", { onRequest: signed }, async (request) => ({
-    data: await exports.submit({ id: request.params.id }, request.portalUser),
-  }));
+  app.post("/v1/requests/:id/tasy", { onRequest: signed }, async (request) => {
+    requireTasyLink(request.portalUser);
+    return { data: await exports.submit({ id: request.params.id }, request.portalUser) };
+  });
   return app;
 }

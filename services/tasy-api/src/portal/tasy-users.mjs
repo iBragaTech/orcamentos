@@ -183,3 +183,64 @@ export function createTasyLinkValidator(pool) {
     }
   };
 }
+
+export function tasyUsernameForDirectoryLogin(value) {
+  const login = String(value ?? "").trim().split("\\").at(-1).split("@")[0];
+  if (!login || login.length > 15)
+    throw new ApiError(400, "INVALID_AD_LOGIN", "O usuário de rede não corresponde a um NM_USUARIO Tasy válido.");
+  return login;
+}
+
+export function createTasyUserOptions(pool) {
+  return async (nmUsuario) => {
+    if (!pool)
+      throw new ApiError(503, "TASY_DISABLED", "Conecte a API ao Tasy para consultar os perfis do usuário.");
+    let connection;
+    try {
+      connection = await pool.getConnection();
+      connection.callTimeout = 10000;
+      await connection.execute("SET TRANSACTION READ ONLY");
+      const profileResult = await connection.execute(
+          `SELECT DISTINCT c.cd_perfil AS "cdPerfil", c.ds_perfil AS "dsPerfil"
+          FROM TASY.usuario a
+          JOIN TASY.usuario_perfil b ON b.nm_usuario = a.nm_usuario
+          JOIN TASY.perfil c ON c.cd_perfil = b.cd_perfil
+          WHERE LOWER(a.nm_usuario) = LOWER(:usuario) AND a.ie_situacao = 'A'
+          AND c.ie_situacao = 'A'
+          AND (b.dt_validade IS NULL OR b.dt_validade >= SYSDATE)
+          AND (b.dt_liberacao IS NULL OR b.dt_liberacao <= SYSDATE)
+          ORDER BY c.ds_perfil`,
+          { usuario: nmUsuario },
+        );
+      const establishmentResult = await connection.execute(
+          `SELECT e.cd_estabelecimento AS "cdEstabelecimento",
+          TASY.obter_nome_estab(e.cd_estabelecimento) AS "dsEstabelecimento"
+          FROM (
+            SELECT b.cd_estabelecimento
+            FROM TASY.usuario a
+            JOIN TASY.usuario_estabelecimento b ON b.nm_usuario_param = a.nm_usuario
+            WHERE LOWER(a.nm_usuario) = LOWER(:usuario)
+            UNION
+            SELECT a.cd_estabelecimento
+            FROM TASY.usuario a
+            WHERE LOWER(a.nm_usuario) = LOWER(:usuario) AND a.cd_estabelecimento IS NOT NULL
+          ) e
+          ORDER BY "dsEstabelecimento"`,
+          { usuario: nmUsuario },
+        );
+      return {
+        nmUsuario,
+        profiles: profileResult.rows ?? [],
+        establishments: establishmentResult.rows ?? [],
+      };
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(503, "TASY_UNAVAILABLE", "Não foi possível consultar os perfis e estabelecimentos Tasy.");
+    } finally {
+      if (connection) {
+        await connection.rollback().catch(() => {});
+        await connection.close({ drop: true }).catch(() => {});
+      }
+    }
+  };
+}

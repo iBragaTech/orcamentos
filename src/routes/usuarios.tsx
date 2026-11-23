@@ -105,7 +105,7 @@ function NewUserDialog() {
       return;
     }
     if (
-      localAuthEnabled &&
+      authSource === "portal" && localAuthEnabled &&
       (!tasyLink.nmUsuario.trim() ||
         !Number.isInteger(tasyLink.cdPerfil) ||
         tasyLink.cdPerfil < 1 ||
@@ -123,7 +123,7 @@ function NewUserDialog() {
         authSource,
         ...(authSource === "ad" ? { adLogin: adLogin.trim() } : {}),
         ...(authSource === "portal" ? { senha } : {}),
-        ...(localAuthEnabled ? tasyLink : {}),
+        ...(authSource === "portal" && localAuthEnabled ? tasyLink : {}),
       });
       toast.success("Usuário cadastrado.");
       setNome("");
@@ -150,7 +150,9 @@ function NewUserDialog() {
         <DialogHeader>
           <DialogTitle>Novo usuário</DialogTitle>
           <DialogDescription>
-            O usuário poderá entrar no portal com o e-mail e a senha inicial informados.
+            {authSource === "ad"
+              ? "A conta será criada para acesso com usuário e senha da rede. No primeiro login, a pessoa selecionará os acessos que já possui no Tasy."
+              : "O usuário poderá entrar no portal com o e-mail e a senha inicial informados."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
@@ -201,7 +203,7 @@ function NewUserDialog() {
               </SelectContent>
             </Select>
           </div>
-          {localAuthEnabled && <TasyUserFields value={tasyLink} onChange={setTasyLink} />}
+          {localAuthEnabled && authSource === "portal" && <TasyUserFields value={tasyLink} onChange={setTasyLink} />}
           {authSource === "ad" && (
             <div className="grid gap-2">
               <Label htmlFor="usuario-ad">Usuário de rede (AD)</Label>

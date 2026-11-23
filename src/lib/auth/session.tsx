@@ -24,6 +24,7 @@ export type SessionUser = {
   telefone?: string;
   // Token de sessão emitido pelo banco no login; exigido em toda operação de dados.
   token?: string;
+  needsTasyLink?: boolean;
 };
 
 type SessionContextValue = {

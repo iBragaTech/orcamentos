@@ -1,5 +1,5 @@
 import type { ConsultationRequest, Doctor, PortalUser, TimelineEvent } from "@/data/mock";
-import type { DoctorFeesInput, InstitutionSettings, NewRequestInput } from "./repository";
+import type { DoctorFeesInput, InstitutionSettings, NewRequestInput, TasyUserOptions } from "./repository";
 import { localAuth, portalCall } from "./local-api";
 import type {
   NewSurgicalAppointmentInput,
@@ -7,6 +7,9 @@ import type {
 } from "@/data/surgical-appointments";
 
 export const localRepository = {
+  getMyTasyOptions: () => portalCall<TasyUserOptions>("getMyTasyOptions"),
+  saveMyTasyLink: (input: { cdPerfil: number; cdEstabelecimento: number }) =>
+    portalCall<void>("saveMyTasyLink", input),
   async listRequests(): Promise<ConsultationRequest[]> {
     const all: ConsultationRequest[] = [];
     for (let offset = 0; ; offset += 200) {

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { getCACertificates } from "node:tls";
 import { Client, InvalidCredentialsError } from "ldapts";
 import { ApiError } from "../errors.mjs";
 
@@ -18,10 +19,15 @@ export async function createDirectoryAuthenticator(env = process.env) {
     (parsed.pathname !== "" && parsed.pathname !== "/")
   )
     throw new Error("AD_SERVER deve conter somente o nome do controlador de domínio.");
+  const ca = [
+    ...getCACertificates("default"),
+    ...getCACertificates("system"),
+    ...(env.PORTAL_AD_CA_FILE ? [await readFile(env.PORTAL_AD_CA_FILE, "utf8")] : []),
+  ];
   const tlsOptions = {
     minVersion: "TLSv1.2",
     rejectUnauthorized: true,
-    ...(env.PORTAL_AD_CA_FILE ? { ca: await readFile(env.PORTAL_AD_CA_FILE, "utf8") } : {}),
+    ca,
   };
   const upnSuffix = (env.AD_DOMAIN || env.PORTAL_AD_UPN_SUFFIX || "").trim();
   if (!upnSuffix) throw new Error("Configure PORTAL_AD_UPN_SUFFIX para habilitar o AD.");

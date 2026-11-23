@@ -7,6 +7,7 @@ import {
   type DoctorFeesInput,
   type InstitutionSettings,
   type NewRequestInput,
+  type TasyUserOptions,
 } from "./repository";
 import type { NewSurgicalAppointmentInput } from "@/data/surgical-appointments";
 
@@ -18,7 +19,31 @@ export function useRequests() {
     queryKey: ["requests"],
     refetchInterval: 30000,
     queryFn: () => repository.listRequests(),
+    enabled: !!user && !user.needsTasyLink,
     select: (rows) => (isMedico ? rows.filter((r) => r.medico === nome) : rows),
+  });
+}
+
+export function useMyTasyOptions(enabled: boolean) {
+  return useQuery<TasyUserOptions>({
+    queryKey: ["my_tasy_options"],
+    queryFn: () => repository.getMyTasyOptions(),
+    enabled,
+    retry: false,
+  });
+}
+
+export function useSaveMyTasyLink() {
+  const qc = useQueryClient();
+  const { updateUser } = useSession();
+  return useMutation({
+    mutationFn: (input: { cdPerfil: number; cdEstabelecimento: number }) =>
+      repository.saveMyTasyLink(input),
+    onSuccess: () => {
+      updateUser({ needsTasyLink: false });
+      void qc.invalidateQueries({ queryKey: ["requests"] });
+      void qc.invalidateQueries({ queryKey: ["my_tasy_options"] });
+    },
   });
 }
 

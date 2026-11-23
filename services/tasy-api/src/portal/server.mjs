@@ -1,4 +1,4 @@
-import { createTasyLinkValidator } from "./tasy-users.mjs";
+import { createTasyLinkValidator, createTasyUserOptions } from "./tasy-users.mjs";
 import { openDatabase, migrate } from "./database.mjs";
 import { createPortalApp } from "./app.mjs";
 import { readPrincipals } from "../config.mjs";
@@ -105,6 +105,7 @@ try {
         : undefined,
     newBudgetRecipient: process.env.PORTAL_NEW_BUDGET_EMAIL_TO,
     validateTasyLink: createTasyLinkValidator(oracle),
+    getTasyUserOptions: createTasyUserOptions(oracle),
   });
   app.addHook("onClose", async () => {
     if (oracle) await oracle.close(10);

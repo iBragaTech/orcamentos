@@ -55,7 +55,13 @@ async function verify(password, encoded) {
   return key.length === stored.length && timingSafeEqual(key, stored);
 }
 export function publicUser(user) {
-  return { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil };
+  return {
+    id: user.id,
+    nome: user.nome,
+    email: user.email,
+    perfil: user.perfil,
+    needsTasyLink: user.auth_source === "ad" && user.tasy_linked !== true,
+  };
 }
 export async function createUser(db, input) {
   const user = parse(userSchema, input);
@@ -118,7 +124,11 @@ export async function createLocalAuth(db, { authenticateDirectory } = {}) {
         );
         await tx.query("UPDATE portal.users SET ultimo_acesso = now() WHERE id = $1", [user.id]);
       });
-      return { token, user: publicUser(user) };
+      const link = await db.query(
+        "SELECT EXISTS(SELECT 1 FROM portal.tasy_user_links WHERE user_id=$1) AS tasy_linked",
+        [user.id],
+      );
+      return { token, user: publicUser({ ...user, tasy_linked: link.rows[0].tasy_linked }) };
     },
     authenticate: async (header) => {
       if (typeof header !== "string" || !/^Bearer [A-Za-z0-9_-]{43}$/.test(header)) {
@@ -126,13 +136,15 @@ export async function createLocalAuth(db, { authenticateDirectory } = {}) {
       }
       const tokenHash = digest(header.slice(7));
       const { rows } = await db.query(
-        `SELECT u.id,u.nome,u.email,u.perfil FROM portal.sessions s
+        `SELECT u.id,u.nome,u.email,u.perfil,u.auth_source,
+        EXISTS(SELECT 1 FROM portal.tasy_user_links l WHERE l.user_id=u.id) AS tasy_linked
+        FROM portal.sessions s
         JOIN portal.users u ON u.id = s.user_id
         WHERE s.token_hash = $1 AND s.expires_at > now() AND u.ativo = true`,
         [tokenHash],
       );
       if (!rows.length) throw new ApiError(401, "UNAUTHORIZED", "Sessão inválida ou expirada.");
-      return { ...publicUser(rows[0]), tokenHash };
+      return { ...rows[0], ...publicUser(rows[0]), tokenHash };
     },
     logout: (user) =>
       db.query("DELETE FROM portal.sessions WHERE token_hash = $1", [user.tokenHash]),

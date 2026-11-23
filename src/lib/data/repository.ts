@@ -32,6 +32,12 @@ export interface InstitutionSettings {
   emailNotificacoes: string;
 }
 
+export interface TasyUserOptions {
+  nmUsuario: string;
+  profiles: { cdPerfil: number; dsPerfil: string }[];
+  establishments: { cdEstabelecimento: number; dsEstabelecimento: string }[];
+}
+
 function fmtDate(value: string | null): string {
   if (!value) return "—";
   const [y, m, d] = value.slice(0, 10).split("-");
@@ -175,6 +181,12 @@ async function portalRpc<T>(fn: string, args: Record<string, unknown> = {}): Pro
 }
 
 const supabaseRepository = {
+  getMyTasyOptions: async (): Promise<TasyUserOptions> => {
+    throw new Error("Vínculo inicial com Tasy disponível apenas no backend do portal.");
+  },
+  saveMyTasyLink: async (_input: { cdPerfil: number; cdEstabelecimento: number }): Promise<void> => {
+    throw new Error("Vínculo inicial com Tasy disponível apenas no backend do portal.");
+  },
   async listSurgicalAppointments(): Promise<SurgicalAppointment[]> {
     const sessionRaw = localStorage.getItem("portal.session");
     if (!sessionRaw) return [];

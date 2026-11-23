@@ -1,6 +1,11 @@
 import { custosOperations, requireCustos, isCustos, visibleRequest } from "./custos.mjs";
 import { budgetTemplateOperations } from "./budget-templates.mjs";
-import { linkFields, principalForLink, storeLink } from "./tasy-users.mjs";
+import {
+  linkFields,
+  principalForLink,
+  storeLink,
+  tasyUsernameForDirectoryLogin,
+} from "./tasy-users.mjs";
 import { z } from "zod";
 import { ApiError } from "../errors.mjs";
 import { createUser, parse, userSchema } from "./auth.mjs";
@@ -154,6 +159,7 @@ export function createPortalOperations(
     enqueueNewEmail,
     tasyManaged = false,
     directoryEnabled = false,
+    getTasyUserOptions,
   } = {},
 ) {
   const handlers = {
@@ -805,15 +811,68 @@ export function createPortalOperations(
         ultimoAcesso: fmtTime(ultimo_acesso),
       }));
     },
+    getMyTasyOptions: async (_input, user) => {
+      if (user.auth_source !== "ad")
+        throw new ApiError(403, "FORBIDDEN", "A configuração inicial do Tasy está disponível para contas AD.");
+      if (user.tasy_linked)
+        throw new ApiError(409, "TASY_LINK_EXISTS", "Sua conta já está vinculada ao Tasy.");
+      if (!getTasyUserOptions)
+        throw new ApiError(503, "TASY_DISABLED", "A consulta ao Tasy não está habilitada.");
+      return getTasyUserOptions(tasyUsernameForDirectoryLogin(user.ad_login));
+    },
+    saveMyTasyLink: async (input, user) => {
+      if (user.auth_source !== "ad")
+        throw new ApiError(403, "FORBIDDEN", "A configuração inicial do Tasy está disponível para contas AD.");
+      if (user.tasy_linked)
+        throw new ApiError(409, "TASY_LINK_EXISTS", "Sua conta já está vinculada ao Tasy.");
+      const value = parse(
+        z.object({ cdPerfil: z.number().int().positive(), cdEstabelecimento: z.number().int().positive() }).strict(),
+        input,
+      );
+      if (!validateTasyLink)
+        throw new ApiError(503, "TASY_DISABLED", "A validação de acesso ao Tasy não está habilitada.");
+      const link = await validateTasyLink({
+        nmUsuario: tasyUsernameForDirectoryLogin(user.ad_login),
+        cdPerfil: value.cdPerfil,
+        cdEstabelecimento: value.cdEstabelecimento,
+        consultarTodosPacientes: false,
+        cadastrarPacientes: false,
+      });
+      const principal = principalForLink({ ...link, ...value });
+      await db.transaction(async (tx) => {
+        const existing = await tx.query("SELECT user_id FROM portal.tasy_user_links WHERE user_id=$1 FOR UPDATE", [user.id]);
+        if (existing.rows.length)
+          throw new ApiError(409, "TASY_LINK_EXISTS", "Sua conta já está vinculada ao Tasy.");
+        await storeLink(tx, user.id, principal, user.id);
+      });
+      return { needsTasyLink: false };
+    },
     createUser: async (input, user) => {
       allowed(user, ["Administrador"]);
-      const value = parse(userSchema.extend(linkFields).strict(), input);
-      if (value.authSource === "ad" && !directoryEnabled)
-        throw new ApiError(
-          503,
-          "DIRECTORY_DISABLED",
-          "Configure a autenticação LDAPS antes de cadastrar usuários da rede.",
+      if (input?.authSource === "ad") {
+        if (!directoryEnabled)
+          throw new ApiError(
+            503,
+            "DIRECTORY_DISABLED",
+            "Configure a autenticação LDAPS antes de cadastrar usuários da rede.",
+          );
+        const account = parse(
+          userSchema
+            .extend({
+              authSource: z.literal("ad"),
+              adLogin: z.string().trim().min(1).max(254),
+              senha: z.never().optional(),
+            })
+            .strict(),
+          input,
         );
+        await createUser(db, account);
+        return null;
+      }
+      const value = parse(
+        userSchema.extend({ authSource: z.literal("portal").default("portal"), ...linkFields }).strict(),
+        input,
+      );
       if (!validateTasyLink)
         throw new ApiError(
           503,
