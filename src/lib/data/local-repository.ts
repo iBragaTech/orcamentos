@@ -40,8 +40,14 @@ export const localRepository = {
     consultarTodosPacientes?: boolean;
     cadastrarPacientes?: boolean;
   }) => portalCall<void>("createUser", input),
-  updateUser: (input: { id: string; nome: string; email: string; perfil: PortalUser["perfil"] }) =>
-    portalCall<void>("updateUser", input),
+  updateUser: (input: {
+    id: string;
+    nome: string;
+    email: string;
+    perfil: PortalUser["perfil"];
+    authSource?: "ad";
+    adLogin?: string;
+  }) => portalCall<void>("updateUser", input),
   updateMyProfile: (input: { id: string; nome: string; email: string; telefone: string }) =>
     portalCall<{ id: string; nome: string; email: string; telefone: string }>(
       "updateMyProfile",

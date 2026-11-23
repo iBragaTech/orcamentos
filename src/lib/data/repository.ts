@@ -293,6 +293,8 @@ const supabaseRepository = {
     nome: string;
     email: string;
     perfil: PortalUser["perfil"];
+    authSource?: "ad";
+    adLogin?: string;
   }): Promise<void> {
     const perfilDb: Record<string, string> = {
       Administrador: "administrador",

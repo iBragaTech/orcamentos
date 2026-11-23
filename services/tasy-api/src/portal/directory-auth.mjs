@@ -4,12 +4,20 @@ import { ApiError } from "../errors.mjs";
 
 export async function createDirectoryAuthenticator(env = process.env) {
   const configuredServer = (env.AD_SERVER || "").trim().replace(/\\+$/, "");
-  const url = (env.PORTAL_AD_URL || (configuredServer ? `ldaps://${configuredServer}:636` : "")).trim();
+  const url = (
+    env.PORTAL_AD_URL || (configuredServer ? `ldaps://${configuredServer}:636` : "")
+  ).trim();
   if (!url) return null;
   const parsed = new URL(url);
   if (parsed.protocol !== "ldaps:") throw new Error("PORTAL_AD_URL deve usar LDAPS.");
-  if (parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/")
-    throw new Error("PORTAL_AD_URL deve conter somente o endereço LDAPS do servidor.");
+  if (
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash ||
+    (parsed.pathname !== "" && parsed.pathname !== "/")
+  )
+    throw new Error("AD_SERVER deve conter somente o nome do controlador de domínio.");
   const tlsOptions = {
     minVersion: "TLSv1.2",
     rejectUnauthorized: true,

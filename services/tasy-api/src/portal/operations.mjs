@@ -795,7 +795,7 @@ export function createPortalOperations(
     listUsers: async (_input, user) => {
       allowed(user, ["Administrador"]);
       const result = await db.query(
-        `SELECT u.id,u.nome,u.email,u.perfil,u.auth_source AS "authSource",u.ativo,u.ultimo_acesso,l.nm_usuario AS "nmUsuario",
+        `SELECT u.id,u.nome,u.email,u.perfil,u.auth_source AS "authSource",u.ad_login AS "adLogin",u.ativo,u.ultimo_acesso,l.nm_usuario AS "nmUsuario",
         (l.principal->>'tasyProfile')::int AS "cdPerfil",(l.principal->>'tasyEstablishment')::int AS "cdEstabelecimento",
         (l.principal->>'allPessoaFisica')::boolean AS "consultarTodosPacientes",(l.principal->>'canCreatePessoaFisica')::boolean AS "cadastrarPacientes"
         FROM portal.users u LEFT JOIN portal.tasy_user_links l ON l.user_id=u.id ORDER BY u.nome`,
@@ -855,13 +855,36 @@ export function createPortalOperations(
               .max(254)
               .transform((s) => s.toLowerCase()),
             perfil: z.enum(["Administrador", "Comercial", "Médico", "Custos"]),
+            authSource: z.literal("ad").optional(),
+            adLogin: z.string().trim().min(1).max(254).optional(),
           })
           .strict(),
         input,
       );
+      if (value.authSource === "ad") {
+        if (!directoryEnabled)
+          throw new ApiError(
+            503,
+            "DIRECTORY_DISABLED",
+            "A autenticação LDAPS ainda não está habilitada.",
+          );
+        if (!value.adLogin)
+          throw new ApiError(400, "INVALID_INPUT", "Informe o usuário de rede (AD).");
+      }
       const result = await db.query(
-        "UPDATE portal.users SET nome=$2,email=$3,perfil=$4 WHERE id=$1 RETURNING id",
-        [value.id, value.nome, value.email, value.perfil],
+        `UPDATE portal.users SET nome=$2,email=$3,perfil=$4,
+        auth_source=CASE WHEN $5::text='ad' THEN 'ad' ELSE auth_source END,
+        password_hash=CASE WHEN $5::text='ad' THEN NULL ELSE password_hash END,
+        ad_login=CASE WHEN $5::text='ad' THEN LOWER($6) ELSE ad_login END
+        WHERE id=$1 RETURNING id`,
+        [
+          value.id,
+          value.nome,
+          value.email,
+          value.perfil,
+          value.authSource ?? null,
+          value.adLogin ?? null,
+        ],
       );
       if (!result.rows.length) throw new ApiError(404, "NOT_FOUND", "Usuario nao encontrado.");
       return null;

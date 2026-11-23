@@ -130,6 +130,8 @@ export function useUpdateUser() {
       nome: string;
       email: string;
       perfil: "Administrador" | "Comercial" | "Médico" | "Custos";
+      authSource?: "ad";
+      adLogin?: string;
     }) => repository.updateUser(input),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["portal_users"] }),
   });

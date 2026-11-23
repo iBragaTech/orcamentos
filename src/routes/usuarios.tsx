@@ -253,10 +253,20 @@ function EditUserDialog({ user }: { user: PortalUser }) {
   const [nome, setNome] = useState(user.nome);
   const [email, setEmail] = useState(user.email);
   const [perfil, setPerfil] = useState<PortalUser["perfil"]>(user.perfil);
+  const [authSource, setAuthSource] = useState<"portal" | "ad">(user.authSource ?? "portal");
+  const [adLogin, setAdLogin] = useState(user.adLogin ?? "");
   const update = useUpdateUser();
   async function save() {
     try {
-      await update.mutateAsync({ id: user.id, nome: nome.trim(), email: email.trim(), perfil });
+      await update.mutateAsync({
+        id: user.id,
+        nome: nome.trim(),
+        email: email.trim(),
+        perfil,
+        ...(localAuthEnabled && authSource === "ad"
+          ? { authSource: "ad" as const, adLogin: adLogin.trim() }
+          : {}),
+      });
       toast.success("Perfil atualizado.");
       setOpen(false);
     } catch (e) {
@@ -272,6 +282,8 @@ function EditUserDialog({ user }: { user: PortalUser }) {
           setNome(user.nome);
           setEmail(user.email);
           setPerfil(user.perfil);
+          setAuthSource(user.authSource ?? "portal");
+          setAdLogin(user.adLogin ?? "");
           setOpen(true);
         }}
       >
@@ -281,7 +293,7 @@ function EditUserDialog({ user }: { user: PortalUser }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Editar usuário</DialogTitle>
-          <DialogDescription>Altere os dados e o perfil de acesso.</DialogDescription>
+          <DialogDescription>Altere os dados, o perfil e o método de acesso.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
           <div className="grid gap-2">
@@ -306,6 +318,40 @@ function EditUserDialog({ user }: { user: PortalUser }) {
               </SelectContent>
             </Select>
           </div>
+          {localAuthEnabled && (
+            <>
+              <div className="grid gap-2">
+                <Label>Método de acesso</Label>
+                {user.authSource === "ad" ? (
+                  <Input value="Active Directory" disabled />
+                ) : (
+                  <Select
+                    value={authSource}
+                    onValueChange={(v) => setAuthSource(v as "portal" | "ad")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="portal">Senha do portal</SelectItem>
+                      <SelectItem value="ad">Active Directory</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              {authSource === "ad" && (
+                <div className="grid gap-2">
+                  <Label htmlFor={`usuario-ad-${user.id}`}>Usuário de rede (AD)</Label>
+                  <Input
+                    id={`usuario-ad-${user.id}`}
+                    value={adLogin}
+                    onChange={(e) => setAdLogin(e.target.value)}
+                    placeholder="Ex.: arafaela ou usuario@aeb.local"
+                  />
+                </div>
+              )}
+            </>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
