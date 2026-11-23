@@ -801,7 +801,7 @@ export function createPortalOperations(
     listUsers: async (_input, user) => {
       allowed(user, ["Administrador"]);
       const result = await db.query(
-        `SELECT u.id,u.nome,u.email,u.perfil,u.auth_source AS "authSource",u.ad_login AS "adLogin",u.ativo,u.ultimo_acesso,l.nm_usuario AS "nmUsuario",
+        `SELECT u.id,u.nome,u.email,u.perfil,u.auth_source AS "authSource",u.ad_login AS "adLogin",u.portal_access_ready AS "portalAccessReady",u.ativo,u.ultimo_acesso,l.nm_usuario AS "nmUsuario",
         (l.principal->>'tasyProfile')::int AS "cdPerfil",(l.principal->>'tasyEstablishment')::int AS "cdEstabelecimento",
         (l.principal->>'allPessoaFisica')::boolean AS "consultarTodosPacientes",(l.principal->>'canCreatePessoaFisica')::boolean AS "cadastrarPacientes"
         FROM portal.users u LEFT JOIN portal.tasy_user_links l ON l.user_id=u.id ORDER BY u.nome`,
@@ -845,7 +845,10 @@ export function createPortalOperations(
           throw new ApiError(409, "TASY_LINK_EXISTS", "Sua conta já está vinculada ao Tasy.");
         await storeLink(tx, user.id, principal, user.id);
       });
-      return { needsTasyLink: false };
+      return {
+        needsTasyLink: false,
+        needsPortalApproval: user.portal_access_ready !== true,
+      };
     },
     createUser: async (input, user) => {
       allowed(user, ["Administrador"]);
@@ -934,7 +937,8 @@ export function createPortalOperations(
         `UPDATE portal.users SET nome=$2,email=$3,perfil=$4,
         auth_source=CASE WHEN $5::text='ad' THEN 'ad' ELSE auth_source END,
         password_hash=CASE WHEN $5::text='ad' THEN NULL ELSE password_hash END,
-        ad_login=CASE WHEN $5::text='ad' THEN LOWER($6) ELSE ad_login END
+        ad_login=CASE WHEN $5::text='ad' THEN LOWER($6) ELSE ad_login END,
+        portal_access_ready=true
         WHERE id=$1 RETURNING id`,
         [
           value.id,

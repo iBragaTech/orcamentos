@@ -19,7 +19,7 @@ export function useRequests() {
     queryKey: ["requests"],
     refetchInterval: 30000,
     queryFn: () => repository.listRequests(),
-    enabled: !!user && !user.needsTasyLink,
+    enabled: !!user && !user.needsTasyLink && !user.needsPortalApproval,
     select: (rows) => (isMedico ? rows.filter((r) => r.medico === nome) : rows),
   });
 }
@@ -39,8 +39,8 @@ export function useSaveMyTasyLink() {
   return useMutation({
     mutationFn: (input: { cdPerfil: number; cdEstabelecimento: number }) =>
       repository.saveMyTasyLink(input),
-    onSuccess: () => {
-      updateUser({ needsTasyLink: false });
+    onSuccess: (result) => {
+      updateUser({ needsTasyLink: result.needsTasyLink, needsPortalApproval: result.needsPortalApproval });
       void qc.invalidateQueries({ queryKey: ["requests"] });
       void qc.invalidateQueries({ queryKey: ["my_tasy_options"] });
     },

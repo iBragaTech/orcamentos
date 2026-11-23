@@ -9,7 +9,7 @@ import type {
 export const localRepository = {
   getMyTasyOptions: () => portalCall<TasyUserOptions>("getMyTasyOptions"),
   saveMyTasyLink: (input: { cdPerfil: number; cdEstabelecimento: number }) =>
-    portalCall<void>("saveMyTasyLink", input),
+    portalCall<{ needsTasyLink: boolean; needsPortalApproval: boolean }>("saveMyTasyLink", input),
   async listRequests(): Promise<ConsultationRequest[]> {
     const all: ConsultationRequest[] = [];
     for (let offset = 0; ; offset += 200) {
@@ -29,7 +29,10 @@ export const localRepository = {
   getTimeline: (id: string) => portalCall<TimelineEvent[]>("getTimeline", { id }),
   listDoctors: () => portalCall<Doctor[]>("listDoctors"),
 
-  listUsers: () => portalCall<PortalUser[]>("listUsers"),
+  listUsers: async () => {
+    const users = await portalCall<PortalUser[]>("listUsers");
+    return users.map((user) => ({ ...user, email: user.email ?? "" }));
+  },
   createUser: (input: {
     nome: string;
     email: string;

@@ -375,7 +375,7 @@ function UsuariosPage() {
     <AppShell>
       <PageHeader
         title="Usuários"
-        description="Perfis de acesso ao portal, com e-mail e senha para entrar no sistema."
+        description="Contas locais cadastradas por administradores e perfis AD provisionados no primeiro acesso."
         actions={<NewUserDialog />}
       />
 
@@ -407,7 +407,7 @@ function UsuariosPage() {
                   perfilStyle[u.perfil],
                 )}
               >
-                {u.perfil}
+            {u.portalAccessReady === false ? "Aguardando perfil" : u.perfil}
               </span>
               <span className="text-xs text-muted-foreground">
                 {u.ativo ? "Ativo" : "Inativo"} · {u.ultimoAcesso}
@@ -447,7 +447,7 @@ function UsuariosPage() {
                         perfilStyle[u.perfil],
                       )}
                     >
-                      {u.perfil}
+                      {u.portalAccessReady === false ? "Aguardando perfil" : u.perfil}
                     </span>
                   </TableCell>
                   {localAuthEnabled && (

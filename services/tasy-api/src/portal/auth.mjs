@@ -58,9 +58,10 @@ export function publicUser(user) {
   return {
     id: user.id,
     nome: user.nome,
-    email: user.email,
+    email: user.email ?? "",
     perfil: user.perfil,
     needsTasyLink: user.auth_source === "ad" && user.tasy_linked !== true,
+    needsPortalApproval: user.auth_source === "ad" && user.portal_access_ready !== true,
   };
 }
 export async function createUser(db, input) {
@@ -93,11 +94,15 @@ export async function createLocalAuth(db, { authenticateDirectory } = {}) {
     login: async (body) => {
       const { email: login, senha } = parse(loginSchema, body);
       const normalizedLogin = login.toLowerCase();
+      const directorySam = normalizedLogin.split("\\").at(-1).split("@")[0];
       const { rows } = await db.query(
-        "SELECT * FROM portal.users WHERE (email = $1 OR ad_login = $1) AND ativo=true",
-        [normalizedLogin],
+        `SELECT * FROM portal.users WHERE ativo=true AND
+        (email=$1 OR ad_login=$1 OR (auth_source='ad' AND ad_login=$2))`,
+        [normalizedLogin, directorySam],
       );
-      const user = rows.length === 1 ? rows[0] : null;
+      if (rows.length > 1)
+        throw new ApiError(401, "UNAUTHORIZED", "E-mail ou senha inválidos.");
+      let user = rows.length === 1 ? rows[0] : null;
       let valid = false;
       if (user?.auth_source === "ad") {
         if (!authenticateDirectory)
@@ -106,7 +111,30 @@ export async function createLocalAuth(db, { authenticateDirectory } = {}) {
             "DIRECTORY_DISABLED",
             "A autenticação pela rede ainda não está configurada.",
           );
-        valid = await authenticateDirectory(user.ad_login, senha);
+        valid = await authenticateDirectory(user.ad_login, senha, login);
+      } else if (!user) {
+        if (!authenticateDirectory)
+          throw new ApiError(503, "DIRECTORY_DISABLED", "A autenticação pela rede ainda não está configurada.");
+        if (!directorySam || directorySam.length > 15 || !/^[a-z0-9._-]+$/i.test(directorySam))
+          throw new ApiError(401, "UNAUTHORIZED", "E-mail ou senha inválidos.");
+        valid = await authenticateDirectory(directorySam, senha, login);
+        if (valid) {
+          const created = await db.query(
+            `INSERT INTO portal.users(nome,email,perfil,password_hash,auth_source,ad_login,portal_access_ready)
+            VALUES ($1,NULL,'Comercial',NULL,'ad',$2,false)
+            ON CONFLICT (ad_login) DO NOTHING RETURNING *`,
+            [directorySam, directorySam],
+          );
+          if (created.rows.length) user = created.rows[0];
+          else {
+            const existing = await db.query(
+              "SELECT * FROM portal.users WHERE ad_login=$1",
+              [directorySam],
+            );
+            user = existing.rows[0] ?? null;
+          }
+          if (!user?.ativo) valid = false;
+        }
       } else {
         valid =
           user &&
@@ -136,7 +164,7 @@ export async function createLocalAuth(db, { authenticateDirectory } = {}) {
       }
       const tokenHash = digest(header.slice(7));
       const { rows } = await db.query(
-        `SELECT u.id,u.nome,u.email,u.perfil,u.auth_source,
+        `SELECT u.id,u.nome,u.email,u.perfil,u.auth_source,u.ad_login,u.portal_access_ready,
         EXISTS(SELECT 1 FROM portal.tasy_user_links l WHERE l.user_id=u.id) AS tasy_linked
         FROM portal.sessions s
         JOIN portal.users u ON u.id = s.user_id

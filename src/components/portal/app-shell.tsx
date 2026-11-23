@@ -184,6 +184,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   if (user.needsTasyLink) return <FirstTasyLink nome={user.nome} />;
+  if (user.needsPortalApproval)
+    return (
+      <main className="grid min-h-screen place-items-center bg-background px-4 py-8">
+        <div className="w-full max-w-lg rounded-xl border border-border bg-card p-6 text-center shadow-card">
+          <h1 className="text-lg font-semibold">Aguardando perfil do portal</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Seu acesso de rede foi validado e associado ao Tasy. Um administrador precisa definir seu perfil no portal antes de liberar as demais funções.
+          </p>
+          <Button className="mt-5" variant="outline" onClick={() => void signOut()}>
+            Sair
+          </Button>
+        </div>
+      </main>
+    );
 
   return (
     <div className="min-h-screen bg-background">

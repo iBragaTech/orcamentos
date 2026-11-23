@@ -25,6 +25,7 @@ export type SessionUser = {
   // Token de sessão emitido pelo banco no login; exigido em toda operação de dados.
   token?: string;
   needsTasyLink?: boolean;
+  needsPortalApproval?: boolean;
 };
 
 type SessionContextValue = {

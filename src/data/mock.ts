@@ -467,6 +467,7 @@ export interface PortalUser {
   email: string;
   perfil: "Administrador" | "Comercial" | "Médico" | "Custos";
   authSource?: "portal" | "ad";
+  portalAccessReady?: boolean;
   adLogin?: string | null;
   ativo: boolean;
   ultimoAcesso: string;

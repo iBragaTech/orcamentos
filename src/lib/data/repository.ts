@@ -184,7 +184,7 @@ const supabaseRepository = {
   getMyTasyOptions: async (): Promise<TasyUserOptions> => {
     throw new Error("Vínculo inicial com Tasy disponível apenas no backend do portal.");
   },
-  saveMyTasyLink: async (_input: { cdPerfil: number; cdEstabelecimento: number }): Promise<void> => {
+  saveMyTasyLink: async (_input: { cdPerfil: number; cdEstabelecimento: number }): Promise<{ needsTasyLink: boolean; needsPortalApproval: boolean }> => {
     throw new Error("Vínculo inicial com Tasy disponível apenas no backend do portal.");
   },
   async listSurgicalAppointments(): Promise<SurgicalAppointment[]> {
@@ -295,6 +295,7 @@ const supabaseRepository = {
       nome: u.nome,
       email: u.email,
       perfil: labels[u.perfil] ?? "Comercial",
+      portalAccessReady: u.portal_access_ready !== false,
       ativo: u.ativo,
       ultimoAcesso: fmtDateTime(u.ultimo_acesso),
     }));

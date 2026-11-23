@@ -31,11 +31,21 @@ export async function createDirectoryAuthenticator(env = process.env) {
   };
   const upnSuffix = (env.AD_DOMAIN || env.PORTAL_AD_UPN_SUFFIX || "").trim();
   if (!upnSuffix) throw new Error("Configure PORTAL_AD_UPN_SUFFIX para habilitar o AD.");
-  return async (username, password) => {
-    const login = username.includes("@") ? username : `${username}@${upnSuffix}`;
+  return async (username, password, suppliedLogin) => {
+    const supplied = String(suppliedLogin ?? "").trim();
+    const suppliedSam = supplied.split("\\").at(-1).split("@")[0];
+    // Honor an explicitly supplied UPN/DOMAIN\\user only when it names the
+    // same sAMAccountName already registered for this portal account.
+    const suppliedIsQualified = supplied.includes("@") || supplied.includes("\\");
+    const bindLogin =
+      suppliedIsQualified && suppliedSam.toLowerCase() === username.toLowerCase()
+        ? supplied
+        : username.includes("@")
+          ? username
+          : `${username}@${upnSuffix}`;
     const client = new Client({ url, timeout: 8000, connectTimeout: 5000, tlsOptions });
     try {
-      await client.bind(login, password);
+      await client.bind(bindLogin, password);
       return true;
     } catch (error) {
       if (error instanceof InvalidCredentialsError) return false;

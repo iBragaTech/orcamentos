@@ -176,5 +176,13 @@ export async function migrate(db) {
         ALTER TABLE portal.users ALTER COLUMN password_hash DROP NOT NULL;`);
       await tx.query("INSERT INTO portal.schema_migrations(version) VALUES (11)");
     }
+    if (
+      !(await tx.query("SELECT version FROM portal.schema_migrations WHERE version=12")).rows.length
+    ) {
+      await tx.exec(`ALTER TABLE portal.users ADD COLUMN portal_access_ready boolean NOT NULL DEFAULT true;
+        ALTER TABLE portal.users ALTER COLUMN email DROP NOT NULL;
+        ALTER TABLE portal.users ADD CONSTRAINT users_email_auth_source_check CHECK (auth_source='ad' OR email IS NOT NULL);`);
+      await tx.query("INSERT INTO portal.schema_migrations(version) VALUES (12)");
+    }
   });
 }
