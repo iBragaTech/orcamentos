@@ -9,7 +9,7 @@ import type {
 export const localRepository = {
   getMyTasyOptions: () => portalCall<TasyUserOptions>("getMyTasyOptions"),
   saveMyTasyLink: (input: { cdPerfil: number; cdEstabelecimento: number }) =>
-    portalCall<{ needsTasyLink: boolean; needsPortalApproval: boolean }>("saveMyTasyLink", input),
+    portalCall<{ needsTasyLink: boolean; needsPortalApproval: boolean; tasyLinked: boolean }>("saveMyTasyLink", input),
   async listRequests(): Promise<ConsultationRequest[]> {
     const all: ConsultationRequest[] = [];
     for (let offset = 0; ; offset += 200) {
@@ -54,6 +54,8 @@ export const localRepository = {
     authSource?: "ad";
     adLogin?: string;
   }) => portalCall<void>("updateUser", input),
+  deleteUser: (id: string) => portalCall<void>("deleteUser", { id }),
+  activateUser: (id: string) => portalCall<void>("activateUser", { id }),
   updateMyProfile: (input: { id: string; nome: string; email: string; telefone: string }) =>
     portalCall<{ id: string; nome: string; email: string; telefone: string }>(
       "updateMyProfile",

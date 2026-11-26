@@ -4,7 +4,7 @@ import { UserTasyLinkDialog } from "@/components/portal/user-tasy-link-dialog";
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Trash2, UserRoundCheck } from "lucide-react";
 import { AppShell } from "@/components/portal/app-shell";
 import { PageHeader } from "@/components/portal/page-header";
 import { UserAvatar } from "@/components/portal/user-avatar";
@@ -35,9 +35,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCreateUser, usePortalUsers, useUpdateUser } from "@/lib/data/hooks";
+import {
+  useActivateUser,
+  useCreateUser,
+  useDeleteUser,
+  usePortalUsers,
+  useUpdateUser,
+} from "@/lib/data/hooks";
 import type { PortalUser } from "@/data/mock";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/usuarios")({
   head: () => ({
@@ -368,6 +383,68 @@ function EditUserDialog({ user }: { user: PortalUser }) {
   );
 }
 
+function DeleteUserDialog({ user }: { user: PortalUser }) {
+  const [open, setOpen] = useState(false);
+  const remove = useDeleteUser();
+
+  async function confirmDelete() {
+    try {
+      await remove.mutateAsync(user.id);
+      toast.success(`Acesso de ${user.nome} removido.`);
+      setOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível excluir o usuário.");
+    }
+  }
+
+  if (!user.ativo) return null;
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Trash2 className="h-4 w-4 text-destructive" />
+        <span className="sr-only">Excluir {user.nome}</span>
+      </Button>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+          <AlertDialogDescription>
+            O acesso de <strong>{user.nome}</strong> será revogado e as sessões encerradas. Os
+            orçamentos e demais registros históricos continuarão vinculados a este usuário.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={remove.isPending}>Cancelar</AlertDialogCancel>
+          <Button variant="destructive" onClick={confirmDelete} disabled={remove.isPending}>
+            {remove.isPending ? "Excluindo..." : "Excluir usuário"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function ActivateUserButton({ user }: { user: PortalUser }) {
+  const activate = useActivateUser();
+  if (user.ativo) return null;
+
+  async function handleActivate() {
+    try {
+      await activate.mutateAsync(user.id);
+      toast.success(`Acesso de ${user.nome} ativado.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível ativar o usuário.");
+    }
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={handleActivate} disabled={activate.isPending}>
+      <UserRoundCheck className="h-4 w-4 text-success" />
+      <span>Ativar</span>
+    </Button>
+  );
+}
+
 function UsuariosPage() {
   const { data: users = [] } = usePortalUsers();
 
@@ -398,7 +475,11 @@ function UsuariosPage() {
               </div>
             )}
             <div className="mt-3">
-              <EditUserDialog user={u} />
+              <div className="flex gap-2">
+                <EditUserDialog user={u} />
+                <ActivateUserButton user={u} />
+                <DeleteUserDialog user={u} />
+              </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
               <span
@@ -465,6 +546,8 @@ function UsuariosPage() {
                     <div className="flex items-center justify-end gap-3">
                       {u.ultimoAcesso}
                       <EditUserDialog user={u} />
+                      <ActivateUserButton user={u} />
+                      <DeleteUserDialog user={u} />
                     </div>
                   </TableCell>
                 </TableRow>

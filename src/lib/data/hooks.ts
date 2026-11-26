@@ -40,9 +40,14 @@ export function useSaveMyTasyLink() {
     mutationFn: (input: { cdPerfil: number; cdEstabelecimento: number }) =>
       repository.saveMyTasyLink(input),
     onSuccess: (result) => {
-      updateUser({ needsTasyLink: result.needsTasyLink, needsPortalApproval: result.needsPortalApproval });
+      updateUser({
+        needsTasyLink: result.needsTasyLink,
+        needsPortalApproval: result.needsPortalApproval,
+        tasyLinked: result.tasyLinked,
+      });
       void qc.invalidateQueries({ queryKey: ["requests"] });
       void qc.invalidateQueries({ queryKey: ["my_tasy_options"] });
+      void qc.invalidateQueries({ queryKey: ["tasy"] });
     },
   });
 }
@@ -77,8 +82,10 @@ export function useSettings(enabled = true) {
 
 export function useSurgicalAppointments() {
   const { user } = useSession();
-  const allowed =
-    user?.needsPortalApproval || user?.perfil === "Administrador" || user?.perfil === "Médico";
+  const allowed = Boolean(
+    user &&
+      (user.needsPortalApproval || user.perfil === "Administrador" || user.perfil === "Médico"),
+  );
   return useQuery({
     queryKey: ["surgical_appointments"],
     queryFn: () => repository.listSurgicalAppointments(),
@@ -159,6 +166,22 @@ export function useUpdateUser() {
       authSource?: "ad";
       adLogin?: string;
     }) => repository.updateUser(input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["portal_users"] }),
+  });
+}
+
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => repository.deleteUser(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["portal_users"] }),
+  });
+}
+
+export function useActivateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => repository.activateUser(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["portal_users"] }),
   });
 }

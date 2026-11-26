@@ -62,6 +62,8 @@ export function publicUser(user) {
     perfil: user.perfil,
     needsTasyLink: user.auth_source === "ad" && user.tasy_linked !== true,
     needsPortalApproval: user.auth_source === "ad" && user.portal_access_ready !== true,
+    authSource: user.auth_source,
+    tasyLinked: user.tasy_linked === true,
   };
 }
 export async function createUser(db, input) {

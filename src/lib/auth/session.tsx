@@ -26,6 +26,8 @@ export type SessionUser = {
   token?: string;
   needsTasyLink?: boolean;
   needsPortalApproval?: boolean;
+  authSource?: "portal" | "ad";
+  tasyLinked?: boolean;
 };
 
 type SessionContextValue = {

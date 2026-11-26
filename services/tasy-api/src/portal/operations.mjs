@@ -813,42 +813,61 @@ export function createPortalOperations(
       }));
     },
     getMyTasyOptions: async (_input, user) => {
-      if (user.auth_source !== "ad")
-        throw new ApiError(403, "FORBIDDEN", "A configuração inicial do Tasy está disponível para contas AD.");
-      if (user.tasy_linked)
-        throw new ApiError(409, "TASY_LINK_EXISTS", "Sua conta já está vinculada ao Tasy.");
       if (!getTasyUserOptions)
         throw new ApiError(503, "TASY_DISABLED", "A consulta ao Tasy não está habilitada.");
-      return getTasyUserOptions(tasyUsernameForDirectoryLogin(user.ad_login));
+      const current = await db.query(
+        "SELECT nm_usuario,principal FROM portal.tasy_user_links WHERE user_id=$1",
+        [user.id],
+      );
+      const currentLink = current.rows[0];
+      if (!currentLink && user.auth_source !== "ad")
+        throw new ApiError(403, "FORBIDDEN", "Sua conta ainda não possui vínculo com o Tasy.");
+      const nmUsuario = currentLink?.nm_usuario ?? tasyUsernameForDirectoryLogin(user.ad_login);
+      const options = await getTasyUserOptions(nmUsuario);
+      return {
+        ...options,
+        selectedProfile: currentLink?.principal?.tasyProfile ?? null,
+        selectedEstablishment: currentLink?.principal?.tasyEstablishment ?? null,
+      };
     },
     saveMyTasyLink: async (input, user) => {
-      if (user.auth_source !== "ad")
-        throw new ApiError(403, "FORBIDDEN", "A configuração inicial do Tasy está disponível para contas AD.");
-      if (user.tasy_linked)
-        throw new ApiError(409, "TASY_LINK_EXISTS", "Sua conta já está vinculada ao Tasy.");
       const value = parse(
         z.object({ cdPerfil: z.number().int().positive(), cdEstabelecimento: z.number().int().positive() }).strict(),
         input,
       );
       if (!validateTasyLink)
         throw new ApiError(503, "TASY_DISABLED", "A validação de acesso ao Tasy não está habilitada.");
+      const current = await db.query(
+        "SELECT nm_usuario,principal FROM portal.tasy_user_links WHERE user_id=$1",
+        [user.id],
+      );
+      const currentLink = current.rows[0];
+      if (!currentLink && user.auth_source !== "ad")
+        throw new ApiError(403, "FORBIDDEN", "Sua conta ainda não possui vínculo com o Tasy.");
+      const nmUsuario = currentLink?.nm_usuario ?? tasyUsernameForDirectoryLogin(user.ad_login);
+      const consultarTodosPacientes = currentLink?.principal?.allPessoaFisica === true;
+      const cadastrarPacientes = currentLink?.principal?.canCreatePessoaFisica === true;
       const link = await validateTasyLink({
-        nmUsuario: tasyUsernameForDirectoryLogin(user.ad_login),
+        nmUsuario,
         cdPerfil: value.cdPerfil,
         cdEstabelecimento: value.cdEstabelecimento,
-        consultarTodosPacientes: false,
-        cadastrarPacientes: false,
+        consultarTodosPacientes,
+        cadastrarPacientes,
       });
-      const principal = principalForLink({ ...link, ...value });
+      const principal = principalForLink({
+        ...link,
+        ...value,
+        consultarTodosPacientes,
+        cadastrarPacientes,
+      });
       await db.transaction(async (tx) => {
-        const existing = await tx.query("SELECT user_id FROM portal.tasy_user_links WHERE user_id=$1 FOR UPDATE", [user.id]);
-        if (existing.rows.length)
-          throw new ApiError(409, "TASY_LINK_EXISTS", "Sua conta já está vinculada ao Tasy.");
+        await tx.query("SELECT user_id FROM portal.users WHERE id=$1 FOR UPDATE", [user.id]);
         await storeLink(tx, user.id, principal, user.id);
       });
       return {
         needsTasyLink: false,
         needsPortalApproval: user.portal_access_ready !== true,
+        tasyLinked: true,
       };
     },
     createUser: async (input, user) => {
@@ -951,6 +970,47 @@ export function createPortalOperations(
         ],
       );
       if (!result.rows.length) throw new ApiError(404, "NOT_FOUND", "Usuario nao encontrado.");
+      return null;
+    },
+    deleteUser: async (input, user) => {
+      allowed(user, ["Administrador"]);
+      const value = parse(idInput, input);
+      if (value.id === user.id)
+        throw new ApiError(409, "SELF_DELETE", "Não é possível excluir o próprio usuário.");
+      await db.transaction(async (tx) => {
+        await tx.exec("LOCK TABLE portal.users IN EXCLUSIVE MODE");
+        const target = await tx.query(
+          "SELECT id,perfil,ativo FROM portal.users WHERE id=$1 FOR UPDATE",
+          [value.id],
+        );
+        if (!target.rows.length)
+          throw new ApiError(404, "NOT_FOUND", "Usuário não encontrado.");
+        if (!target.rows[0].ativo)
+          throw new ApiError(409, "USER_INACTIVE", "Este usuário já está inativo.");
+        if (target.rows[0].perfil === "Administrador") {
+          const admins = await tx.query(
+            "SELECT count(*)::int AS total FROM portal.users WHERE perfil='Administrador' AND ativo=true",
+          );
+          if (admins.rows[0].total <= 1)
+            throw new ApiError(409, "LAST_ADMIN", "Não é possível excluir o último administrador ativo.");
+        }
+        await tx.query("UPDATE portal.users SET ativo=false WHERE id=$1", [value.id]);
+        await tx.query("DELETE FROM portal.sessions WHERE user_id=$1", [value.id]);
+      });
+      return null;
+    },
+    activateUser: async (input, user) => {
+      allowed(user, ["Administrador"]);
+      const value = parse(idInput, input);
+      const result = await db.query(
+        "UPDATE portal.users SET ativo=true WHERE id=$1 AND ativo=false RETURNING id",
+        [value.id],
+      );
+      if (!result.rows.length) {
+        const target = await db.query("SELECT id,ativo FROM portal.users WHERE id=$1", [value.id]);
+        if (!target.rows.length) throw new ApiError(404, "NOT_FOUND", "Usuário não encontrado.");
+        throw new ApiError(409, "USER_ACTIVE", "Este usuário já está ativo.");
+      }
       return null;
     },
     saveUserTasyLink: async (input, user) => {

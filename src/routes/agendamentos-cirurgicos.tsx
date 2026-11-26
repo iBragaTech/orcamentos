@@ -155,7 +155,9 @@ function SurgicalAppointmentsPage() {
         <p className="text-sm text-muted-foreground">Carregando agendamentos…</p>
       ) : error ? (
         <p role="alert" className="text-sm text-destructive">
-          Não foi possível carregar os agendamentos.
+          {error instanceof Error
+            ? error.message
+            : "Não foi possível carregar os agendamentos."}
         </p>
       ) : filtered.length === 0 ? (
         <EmptyState

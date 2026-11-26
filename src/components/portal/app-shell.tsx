@@ -34,6 +34,7 @@ import { UserAvatar } from "./user-avatar";
 import { ACESSO, useSession, type Perfil } from "@/lib/auth/session";
 import { useRequests } from "@/lib/data/hooks";
 import { FirstTasyLink } from "@/components/portal/first-tasy-link";
+import { TasyAccessDialog } from "@/components/portal/tasy-access-dialog";
 import type { ConsultationRequest } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { ShieldAlert } from "lucide-react";
@@ -163,6 +164,7 @@ function buildNotifications(
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [tasyAccessOpen, setTasyAccessOpen] = useState(false);
   const { user, ready, signOut } = useSession();
   const navigate = useNavigate();
   const { data: requests = [] } = useRequests();
@@ -304,6 +306,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {!initialReadOnly && <DropdownMenuItem asChild>
                     <Link to="/configuracoes">Configurações</Link>
                   </DropdownMenuItem>}
+                  {user.tasyLinked && (
+                    <DropdownMenuItem onSelect={() => setTasyAccessOpen(true)}>
+                      Trocar perfil / estabelecimento Tasy
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onSelect={async () => {
@@ -322,6 +329,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
+
+        {user.tasyLinked && (
+          <TasyAccessDialog open={tasyAccessOpen} onOpenChange={setTasyAccessOpen} />
+        )}
 
         <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
           {autorizado ? (

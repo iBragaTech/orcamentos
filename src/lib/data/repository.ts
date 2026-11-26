@@ -36,6 +36,8 @@ export interface TasyUserOptions {
   nmUsuario: string;
   profiles: { cdPerfil: number; dsPerfil: string }[];
   establishments: { cdEstabelecimento: number; dsEstabelecimento: string }[];
+  selectedProfile: number | null;
+  selectedEstablishment: number | null;
 }
 
 function fmtDate(value: string | null): string {
@@ -184,7 +186,7 @@ const supabaseRepository = {
   getMyTasyOptions: async (): Promise<TasyUserOptions> => {
     throw new Error("Vínculo inicial com Tasy disponível apenas no backend do portal.");
   },
-  saveMyTasyLink: async (_input: { cdPerfil: number; cdEstabelecimento: number }): Promise<{ needsTasyLink: boolean; needsPortalApproval: boolean }> => {
+  saveMyTasyLink: async (_input: { cdPerfil: number; cdEstabelecimento: number }): Promise<{ needsTasyLink: boolean; needsPortalApproval: boolean; tasyLinked: boolean }> => {
     throw new Error("Vínculo inicial com Tasy disponível apenas no backend do portal.");
   },
   async listSurgicalAppointments(): Promise<SurgicalAppointment[]> {
@@ -321,6 +323,14 @@ const supabaseRepository = {
       p_perfil: perfilDb[input.perfil],
     });
     if (error) throw new Error(error.message);
+  },
+
+  async deleteUser(id: string): Promise<void> {
+    await portalRpc("portal_excluir_usuario", { p_id: id });
+  },
+
+  async activateUser(id: string): Promise<void> {
+    await portalRpc("portal_ativar_usuario", { p_id: id });
   },
 
   // Valida e-mail + senha no banco (função verificar_login, hash bcrypt/pgcrypto).
