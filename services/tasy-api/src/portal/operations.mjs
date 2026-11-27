@@ -866,6 +866,12 @@ export function createPortalOperations(
         [user.id],
       );
       const currentLink = current.rows[0];
+      if (currentLink)
+        throw new ApiError(
+          403,
+          "TASY_ACCESS_CHANGE_DISABLED",
+          "A troca de perfil e estabelecimento Tasy está temporariamente desabilitada.",
+        );
       if (!currentLink && user.auth_source !== "ad")
         throw new ApiError(403, "FORBIDDEN", "Sua conta ainda não possui vínculo com o Tasy.");
       const nmUsuario = currentLink?.nm_usuario ?? tasyUsernameForDirectoryLogin(user.ad_login);
@@ -885,7 +891,18 @@ export function createPortalOperations(
         cadastrarPacientes,
       });
       await db.transaction(async (tx) => {
-        await tx.query("SELECT user_id FROM portal.users WHERE id=$1 FOR UPDATE", [user.id]);
+        const target = await tx.query("SELECT id FROM portal.users WHERE id=$1 FOR UPDATE", [user.id]);
+        if (!target.rows.length) throw new ApiError(404, "NOT_FOUND", "Usuário não encontrado.");
+        const existing = await tx.query(
+          "SELECT user_id FROM portal.tasy_user_links WHERE user_id=$1 FOR UPDATE",
+          [user.id],
+        );
+        if (existing.rows.length)
+          throw new ApiError(
+            403,
+            "TASY_ACCESS_CHANGE_DISABLED",
+            "A troca de perfil e estabelecimento Tasy está temporariamente desabilitada.",
+          );
         await storeLink(tx, user.id, principal, user.id);
       });
       return {
