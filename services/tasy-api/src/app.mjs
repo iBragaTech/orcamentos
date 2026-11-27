@@ -35,7 +35,22 @@ export async function createApp({ authenticate, execute, portalOrigin, logger = 
           ? error.statusCode
           : 500;
     const code = error instanceof ApiError ? error.code : "REQUEST_FAILED";
-    app.log.warn({ requestId: request.id, status, code }, "request_rejected");
+    app.log.warn(
+      {
+        requestId: request.id,
+        operation: request.params?.operation,
+        status,
+        code,
+        ...(error instanceof ApiError
+          ? {}
+          : {
+              causeName: error.name,
+              causeCode: typeof error.code === "string" ? error.code : undefined,
+              constraint: typeof error.constraint === "string" ? error.constraint : undefined,
+            }),
+      },
+      "request_rejected",
+    );
     reply.code(status).send({
       error: {
         code,

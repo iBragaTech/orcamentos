@@ -167,20 +167,20 @@ export function createPortalOperations(
     ...custosOperations({ db, getAccessible, event, calculateQuote, auditIdentity }),
     listSurgicalAppointments: async (_input, user) => {
       const firstAccessReadOnly = user.auth_source === "ad" && user.portal_access_ready === false;
-      if (!firstAccessReadOnly) allowed(user, ["Administrador", "Médico"]);
+      if (!firstAccessReadOnly) allowed(user, ["Administrador", "Médico", "Gerais"]);
       const result = await db.query(
         `SELECT id,patient_name AS "patientName",patient_cpf AS "patientCpf",
         doctor_user_id AS "doctorUserId",doctor_name AS "doctorName",
         desired_date::text AS "desiredDate",status,created_at AS "createdAt",dados
         FROM portal.surgical_appointments
-        WHERE ($3::boolean OR $1 = 'Administrador' OR doctor_user_id = $2)
+        WHERE ($3::boolean OR $1 IN ('Administrador','Gerais') OR doctor_user_id = $2)
         ORDER BY desired_date,created_at DESC`,
         [user.perfil, user.id, firstAccessReadOnly],
       );
       return result.rows;
     },
     createSurgicalAppointment: async (input, user) => {
-      allowed(user, ["Médico"]);
+      allowed(user, ["Médico", "Gerais"]);
       const value = parse(surgicalAppointmentInput, input);
       if (value.desiredDate < new Date().toISOString().slice(0, 10))
         throw new ApiError(400, "INVALID_DATE", "A data desejada não pode estar no passado.");
@@ -198,6 +198,28 @@ export function createPortalOperations(
         ],
       );
       return result.rows[0].id;
+    },
+    cancelSurgicalAppointment: async (input, user) => {
+      const value = parse(idInput, input);
+      await db.transaction(async (tx) => {
+        const target = await tx.query(
+          "SELECT id,status FROM portal.surgical_appointments WHERE id=$1 AND doctor_user_id=$2 FOR UPDATE",
+          [value.id, user.id],
+        );
+        if (!target.rows.length)
+          throw new ApiError(
+            404,
+            "NOT_FOUND",
+            "Solicitação não encontrada ou você não tem permissão para cancelá-la.",
+          );
+        if (target.rows[0].status === "cancelado")
+          throw new ApiError(409, "ALREADY_CANCELLED", "Esta solicitação já está cancelada.");
+        await tx.query(
+          "UPDATE portal.surgical_appointments SET status='cancelado',updated_at=now() WHERE id=$1",
+          [value.id],
+        );
+      });
+      return null;
     },
     updatePatientPhone: async (input, user) => {
       allowed(user, ["Médico", "Administrador", "Comercial", "Custos"]);
@@ -373,6 +395,8 @@ export function createPortalOperations(
     getRequest: async (input, user) =>
       rowDto(await getAccessible(db, parse(idInput, input).id, user), user),
     createRequest: async (input, user) => {
+      if (user.perfil === "Gerais")
+        throw new ApiError(403, "FORBIDDEN", "O perfil Gerais pode visualizar orçamentos, mas não criá-los.");
       const value = parse(newRequest, input);
       const existingRequest = async (queryDb) => {
         if (!value.requestKey) return null;
@@ -936,7 +960,7 @@ export function createPortalOperations(
               .email()
               .max(254)
               .transform((s) => s.toLowerCase()),
-            perfil: z.enum(["Administrador", "Comercial", "Médico", "Custos"]),
+            perfil: z.enum(["Administrador", "Comercial", "Médico", "Custos", "Gerais"]),
             authSource: z.literal("ad").optional(),
             adLogin: z.string().trim().min(1).max(254).optional(),
           })

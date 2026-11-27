@@ -85,13 +85,14 @@ const perfilStyle: Record<string, string> = {
   Administrador: "bg-primary-soft text-accent-foreground ring-primary/25",
   Comercial: "bg-muted text-secondary-foreground ring-border",
   Médico: "bg-success-soft text-success ring-success/25",
+  Gerais: "bg-primary-soft text-primary ring-primary/25",
 };
 
 function NewUserDialog() {
   const [open, setOpen] = useState(false);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [perfil, setPerfil] = useState<"Administrador" | "Comercial" | "Médico" | "Custos" | "">(
+  const [perfil, setPerfil] = useState<"Administrador" | "Comercial" | "Médico" | "Custos" | "Gerais" | "">(
     "",
   );
   const [senha, setSenha] = useState("");
@@ -190,7 +191,7 @@ function NewUserDialog() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <div className="grid gap-2">
+          {authSource !== "ad" && <div className="grid gap-2">
             <Label>Perfil</Label>
             <Select value={perfil} onValueChange={(v) => setPerfil(v as typeof perfil)}>
               <SelectTrigger>
@@ -201,12 +202,20 @@ function NewUserDialog() {
                 <SelectItem value="Comercial">Comercial</SelectItem>
                 <SelectItem value="Custos">Custos</SelectItem>
                 <SelectItem value="Médico">Médico</SelectItem>
+                <SelectItem value="Gerais">Gerais</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </div>}
           <div className="grid gap-2">
             <Label>Autenticação</Label>
-            <Select value={authSource} onValueChange={(v) => setAuthSource(v as "portal" | "ad")}>
+              <Select
+                value={authSource}
+                onValueChange={(v) => {
+                  const next = v as "portal" | "ad";
+                  setAuthSource(next);
+                  setPerfil(next === "ad" ? "Gerais" : "");
+                }}
+              >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -230,6 +239,11 @@ function NewUserDialog() {
                 onChange={(e) => setAdLogin(e.target.value)}
               />
             </div>
+          )}
+          {authSource === "ad" && (
+            <p className="text-sm text-muted-foreground">
+              O perfil Gerais será atribuído automaticamente no primeiro acesso.
+            </p>
           )}
           {authSource === "portal" && (
             <div className="grid gap-2">
@@ -332,6 +346,7 @@ function EditUserDialog({ user }: { user: PortalUser }) {
                 <SelectItem value="Comercial">Comercial</SelectItem>
                 <SelectItem value="Custos">Custos</SelectItem>
                 <SelectItem value="Médico">Médico</SelectItem>
+                <SelectItem value="Gerais">Gerais</SelectItem>
               </SelectContent>
             </Select>
           </div>

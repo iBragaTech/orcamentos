@@ -18,6 +18,7 @@ import { RequestTable } from "@/components/portal/request-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRequests } from "@/lib/data/hooks";
+import { useSession } from "@/lib/auth/session";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -46,6 +47,7 @@ const legacyFlow = [
 ];
 
 function Dashboard() {
+  const { user } = useSession();
   const { data: requests = [] } = useRequests();
   const managed = requests.some((r) => r.tasyGerenciado);
   const flow = managed
@@ -77,13 +79,15 @@ function Dashboard() {
         description="Visão geral dos orçamentos de consultas particulares."
         actions={
           <div className="flex items-center gap-2">
-            <NewRequestDialog
-              trigger={
-                <Button variant="outline">
-                  <Plus className="h-4 w-4" /> Novo orçamento
-                </Button>
-              }
-            />
+            {user?.perfil !== "Gerais" && (
+              <NewRequestDialog
+                trigger={
+                  <Button variant="outline">
+                    <Plus className="h-4 w-4" /> Novo orçamento
+                  </Button>
+                }
+              />
+            )}
             <Button asChild>
               <Link to="/orcamentos">
                 Ver orçamentos <ArrowRight className="h-4 w-4" />

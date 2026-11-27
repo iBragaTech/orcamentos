@@ -129,9 +129,23 @@ export function createLinkResolver(db, validate) {
       !operations.includes("pessoas-fisicas.atualizar-telefone")
     )
       operations.push("pessoas-fisicas.atualizar-telefone");
+    const gerais = user.perfil === "Gerais";
     return {
       ...p,
-      operations,
+      // Gerais precisa localizar pacientes e consultar alergias/CIDs para abrir
+      // solicitações cirúrgicas. Esse perfil recebe somente leitura de pessoas.
+      operations: gerais
+        ? operations.filter(
+            (name) =>
+              !name.startsWith("precos.") &&
+              name !== "orcamentos.enviar" &&
+              name !== "pessoas-fisicas.salvar" &&
+              !name.startsWith("pessoas-fisicas.atualizar-"),
+          )
+        : operations,
+      allPessoaFisica: gerais || p.allPessoaFisica === true,
+      canCreatePessoaFisica: gerais ? false : p.canCreatePessoaFisica,
+      canUpdatePessoaFisica: gerais ? false : p.canUpdatePessoaFisica,
       subject: user.id,
       ...(user.perfil === "Médico" ? { canUpdatePessoaFisica: false } : {}),
     };

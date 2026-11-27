@@ -7,7 +7,7 @@ export const supabaseAuthEnabled = import.meta.env["VITE_PORTAL_AUTH_MODE"] === 
 export function toPortalUser(user: User): SessionUser | null {
   // app_metadata is administered by the backend. Never take a role from user_metadata.
   const perfil: unknown = user.app_metadata["portal_perfil"];
-  if (perfil !== "Administrador" && perfil !== "Comercial" && perfil !== "Médico") return null;
+  if (perfil !== "Administrador" && perfil !== "Comercial" && perfil !== "Médico" && perfil !== "Gerais") return null;
   return {
     id: user.id,
     nome:

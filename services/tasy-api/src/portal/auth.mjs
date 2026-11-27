@@ -14,7 +14,7 @@ export const userSchema = z
       .email()
       .max(254)
       .transform((s) => s.toLowerCase()),
-    perfil: z.enum(["Administrador", "Comercial", "Médico", "Custos"]),
+    perfil: z.enum(["Administrador", "Comercial", "Médico", "Custos", "Gerais"]),
     authSource: z.enum(["portal", "ad"]).default("portal"),
     adLogin: z.string().trim().min(1).max(254).optional(),
     senha: passwordSchema.optional(),
@@ -26,7 +26,7 @@ export function parse(schema, input) {
     const messages = {
       nome: "Nome: informe de 1 a 120 caracteres.",
       email: "E-mail: informe um endereço válido, com até 254 caracteres.",
-      perfil: "Perfil inválido. Selecione Administrador, Comercial, Médico ou Custos.",
+      perfil: "Perfil inválido. Selecione Administrador, Comercial, Médico, Custos ou Gerais.",
       senha: "Senha inicial: informe de 12 a 128 caracteres.",
       nmUsuario: "Usuário Tasy (NM_USUARIO): informe de 1 a 15 caracteres.",
       cdPerfil: "Código do perfil Tasy: informe um número inteiro positivo válido.",
@@ -123,7 +123,7 @@ export async function createLocalAuth(db, { authenticateDirectory } = {}) {
         if (valid) {
           const created = await db.query(
             `INSERT INTO portal.users(nome,email,perfil,password_hash,auth_source,ad_login,portal_access_ready)
-            VALUES ($1,NULL,'Comercial',NULL,'ad',$2,false)
+            VALUES ($1,NULL,'Gerais',NULL,'ad',$2,true)
             ON CONFLICT (ad_login) DO NOTHING RETURNING *`,
             [directorySam, directorySam],
           );

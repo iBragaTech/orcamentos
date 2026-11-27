@@ -226,6 +226,10 @@ const supabaseRepository = {
     return data as string;
   },
 
+  async cancelSurgicalAppointment(id: string): Promise<void> {
+    await portalRpc("portal_cancelar_solicitacao_cirurgica", { p_id: id });
+  },
+
   async listRequests(): Promise<ConsultationRequest[]> {
     const data = await portalRpc<any[] | null>("portal_listar_orcamentos");
     return (data ?? []).map(mapRequest);
@@ -291,6 +295,7 @@ const supabaseRepository = {
       administrador: "Administrador",
       comercial: "Comercial",
       medico: "Médico",
+      gerais: "Gerais",
     };
     return (data as any[]).map((u) => ({
       id: u.id,
@@ -315,6 +320,7 @@ const supabaseRepository = {
       Administrador: "administrador",
       Comercial: "comercial",
       Médico: "medico",
+      Gerais: "gerais",
     };
     const { error } = await (supabase as any).rpc("portal_atualizar_usuario", {
       p_id: input.id,
@@ -357,6 +363,7 @@ const supabaseRepository = {
       administrador: "Administrador",
       comercial: "Comercial",
       medico: "Médico",
+      gerais: "Gerais",
     };
     return {
       id: row.id as string,

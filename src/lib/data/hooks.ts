@@ -84,7 +84,7 @@ export function useSurgicalAppointments() {
   const { user } = useSession();
   const allowed = Boolean(
     user &&
-      (user.needsPortalApproval || user.perfil === "Administrador" || user.perfil === "Médico"),
+      (user.needsPortalApproval || ["Administrador", "Médico", "Gerais"].includes(user.perfil)),
   );
   return useQuery({
     queryKey: ["surgical_appointments"],
@@ -97,6 +97,14 @@ export function useCreateSurgicalAppointment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: NewSurgicalAppointmentInput) => repository.createSurgicalAppointment(input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["surgical_appointments"] }),
+  });
+}
+
+export function useCancelSurgicalAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => repository.cancelSurgicalAppointment(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["surgical_appointments"] }),
   });
 }
@@ -141,7 +149,7 @@ export function useCreateUser() {
     mutationFn: (input: {
       nome: string;
       email: string;
-      perfil: "Administrador" | "Comercial" | "Médico" | "Custos";
+      perfil: "Administrador" | "Comercial" | "Médico" | "Custos" | "Gerais";
       authSource?: "portal" | "ad";
       adLogin?: string;
       senha?: string;
@@ -162,7 +170,7 @@ export function useUpdateUser() {
       id: string;
       nome: string;
       email: string;
-      perfil: "Administrador" | "Comercial" | "Médico" | "Custos";
+      perfil: "Administrador" | "Comercial" | "Médico" | "Custos" | "Gerais";
       authSource?: "ad";
       adLogin?: string;
     }) => repository.updateUser(input),

@@ -92,7 +92,7 @@ function OrcamentosPage() {
             ? "Crie orçamentos e acompanhe a cotação, a aprovação e seu histórico."
             : "Todos os orçamentos registrados no portal, do pedido inicial ao valor consolidado."
         }
-        actions={user?.needsPortalApproval ? undefined : (
+        actions={user?.needsPortalApproval || user?.perfil === "Gerais" ? undefined : (
           <NewRequestDialog
             origem={isMedico ? "medico" : "comercial"}
             trigger={

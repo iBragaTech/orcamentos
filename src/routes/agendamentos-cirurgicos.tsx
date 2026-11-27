@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarDays, Plus, Search } from "lucide-react";
+import { toast } from "sonner";
+import { CalendarDays, Plus, Search, XCircle } from "lucide-react";
 import { AppShell } from "@/components/portal/app-shell";
 import { EmptyState } from "@/components/portal/empty-state";
 import { NewSurgicalAppointmentDialog } from "@/components/portal/new-surgical-appointment-dialog";
@@ -24,11 +25,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useSession } from "@/lib/auth/session";
-import { useSurgicalAppointments } from "@/lib/data/hooks";
+import { useCancelSurgicalAppointment, useSurgicalAppointments } from "@/lib/data/hooks";
 import {
   surgicalAppointmentStatusLabels,
   type SurgicalAppointmentStatus,
 } from "@/data/surgical-appointments";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/agendamentos-cirurgicos")({
   head: () => ({
@@ -85,12 +95,50 @@ function Status({ status }: { status: SurgicalAppointmentStatus }) {
   );
 }
 
+function CancelSurgicalAppointmentButton({ appointmentId }: { appointmentId: string }) {
+  const [open, setOpen] = useState(false);
+  const cancel = useCancelSurgicalAppointment();
+
+  async function confirmCancel() {
+    try {
+      await cancel.mutateAsync(appointmentId);
+      toast.success("Solicitação cirúrgica cancelada.");
+      setOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível cancelar a solicitação.");
+    }
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <XCircle className="h-4 w-4 text-destructive" />
+        <span>Cancelar</span>
+      </Button>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Cancelar solicitação cirúrgica?</AlertDialogTitle>
+          <AlertDialogDescription>
+            A solicitação será marcada como cancelada. Essa ação não poderá ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={cancel.isPending}>Voltar</AlertDialogCancel>
+          <Button variant="destructive" onClick={confirmCancel} disabled={cancel.isPending}>
+            {cancel.isPending ? "Cancelando..." : "Confirmar cancelamento"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function SurgicalAppointmentsPage() {
   const { user } = useSession();
   const { data: appointments = [], isLoading, error } = useSurgicalAppointments();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("todos");
-  const isDoctor = user?.perfil === "Médico";
+  const canCreate = user?.perfil === "Médico" || user?.perfil === "Gerais";
   const filtered = useMemo(() => {
     const term = query.trim().toLocaleLowerCase("pt-BR");
     const digits = query.replace(/\D/g, "");
@@ -108,14 +156,14 @@ function SurgicalAppointmentsPage() {
       <PageHeader
         title="Solicitações Cirúrgicas"
         description={
-          isDoctor
-            ? "Solicite uma data e acompanhe suas solicitações cirúrgicas."
+          canCreate
+            ? "Crie solicitações e acompanhe todas as solicitações cirúrgicas."
           : user?.needsPortalApproval
             ? "Visualização das solicitações cirúrgicas no primeiro acesso."
             : "Acompanhe as solicitações de agendamento enviadas pelos médicos."
         }
         actions={
-          isDoctor ? (
+          canCreate ? (
             <NewSurgicalAppointmentDialog
               trigger={
                 <Button className="w-full sm:w-auto">
@@ -166,7 +214,7 @@ function SurgicalAppointmentsPage() {
           description={
             appointments.length
               ? "Ajuste a busca ou a situação para visualizar outros resultados."
-              : isDoctor
+              : canCreate
                 ? "Use Novo agendamento para solicitar uma data de cirurgia."
                 : "As solicitações enviadas pelos médicos aparecerão aqui."
           }
@@ -193,6 +241,11 @@ function SurgicalAppointmentsPage() {
                     <dd className="mt-1 font-medium">{appointment.doctorName}</dd>
                   </div>
                 </dl>
+                {appointment.doctorUserId === user?.id && appointment.status !== "cancelado" && (
+                  <div className="mt-4 border-t border-border pt-3">
+                    <CancelSurgicalAppointmentButton appointmentId={appointment.id} />
+                  </div>
+                )}
               </article>
             ))}
           </div>
@@ -207,6 +260,7 @@ function SurgicalAppointmentsPage() {
                   <TableHead>Data desejada</TableHead>
                   <TableHead>Solicitado em</TableHead>
                   <TableHead>Situação</TableHead>
+                  <TableHead className="text-right">Ação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -218,6 +272,11 @@ function SurgicalAppointmentsPage() {
                     <TableCell className="font-medium">{dateBr(appointment.desiredDate)}</TableCell>
                     <TableCell className="text-muted-foreground">{createdDate(appointment.createdAt)}</TableCell>
                     <TableCell><Status status={appointment.status} /></TableCell>
+                    <TableCell className="text-right">
+                      {appointment.doctorUserId === user?.id && appointment.status !== "cancelado" && (
+                        <CancelSurgicalAppointmentButton appointmentId={appointment.id} />
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

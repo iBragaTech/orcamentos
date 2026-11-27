@@ -47,6 +47,11 @@ const perfilDescricao: Record<Perfil, string[]> = {
     "Criação e acompanhamento das próprias solicitações cirúrgicas",
   ],
   Custos: ["Acompanhamento dos orçamentos para revisão de valores"],
+  Gerais: [
+    "Acesso ao dashboard e visualização de todos os orçamentos",
+    "Visualização de todas as solicitações cirúrgicas",
+    "Criação de solicitações cirúrgicas",
+  ],
 };
 
 function PerfilPage() {

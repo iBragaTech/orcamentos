@@ -184,5 +184,23 @@ export async function migrate(db) {
         ALTER TABLE portal.users ADD CONSTRAINT users_email_auth_source_check CHECK (auth_source='ad' OR email IS NOT NULL);`);
       await tx.query("INSERT INTO portal.schema_migrations(version) VALUES (12)");
     }
+    if (
+      !(await tx.query("SELECT version FROM portal.schema_migrations WHERE version=13")).rows.length
+    ) {
+      await tx.exec(`ALTER TABLE portal.users DROP CONSTRAINT users_perfil_check;
+        ALTER TABLE portal.users ADD CONSTRAINT users_perfil_check CHECK
+        (perfil IN ('Administrador','Comercial','Médico','Custos','Gerais'));
+        UPDATE portal.users SET perfil='Gerais',portal_access_ready=true
+        WHERE auth_source='ad' AND perfil<>'Administrador';`);
+      await tx.query("INSERT INTO portal.schema_migrations(version) VALUES (13)");
+    }
+    if (
+      !(await tx.query("SELECT version FROM portal.schema_migrations WHERE version=14")).rows.length
+    ) {
+      await tx.exec(
+        "ALTER TABLE IF EXISTS portal.surgical_appointments ADD COLUMN IF NOT EXISTS dados jsonb",
+      );
+      await tx.query("INSERT INTO portal.schema_migrations(version) VALUES (14)");
+    }
   });
 }

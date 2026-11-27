@@ -555,7 +555,7 @@ export type Database = {
         | "aguardando_comercial"
         | "concluido"
         | "inativo"
-      user_profile: "administrador" | "comercial" | "medico"
+      user_profile: "administrador" | "comercial" | "medico" | "gerais"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -691,7 +691,7 @@ export const Constants = {
         "concluido",
         "inativo",
       ],
-      user_profile: ["administrador", "comercial", "medico"],
+      user_profile: ["administrador", "comercial", "medico", "gerais"],
     },
   },
 } as const

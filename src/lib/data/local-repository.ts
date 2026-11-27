@@ -66,5 +66,7 @@ export const localRepository = {
   listSurgicalAppointments: () => portalCall<SurgicalAppointment[]>("listSurgicalAppointments"),
   createSurgicalAppointment: (input: NewSurgicalAppointmentInput) =>
     portalCall<string>("createSurgicalAppointment", input),
+  cancelSurgicalAppointment: (id: string) =>
+    portalCall<void>("cancelSurgicalAppointment", { id }),
   signIn: localAuth.signIn,
 };

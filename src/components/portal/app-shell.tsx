@@ -151,6 +151,8 @@ function buildNotifications(
       }));
   }
 
+  if (perfil === "Gerais") return [];
+
   // Administrador e Comercial
   return requests
     .filter((r) => r.status === "aguardando_comercial")
